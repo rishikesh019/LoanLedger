@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: LoanLedger API - Loan management with interest and commission tracking
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User management
+  - name: borrowers
+    description: Loan borrower management
+  - name: payments
+    description: Loan payment records
+  - name: analytics
+    description: Statistics and analytics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +32,765 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── USERS ───────────────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+    patch:
+      operationId: updateMe
+      tags: [users]
+      summary: Update current user basic info (not password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: Admin - list all users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Admin - create new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Admin - get user details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Admin - update user role or info
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserAdminUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # ─── BORROWERS ───────────────────────────────────────────────────────────────
+  /borrowers:
+    get:
+      operationId: listBorrowers
+      tags: [borrowers]
+      summary: List borrowers (own for user, all for admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, closed, defaulted]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of borrowers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Borrower"
+    post:
+      operationId: createBorrower
+      tags: [borrowers]
+      summary: Create a new loan borrower
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BorrowerInput"
+      responses:
+        "201":
+          description: Created borrower
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Borrower"
+
+  /borrowers/{id}:
+    get:
+      operationId: getBorrower
+      tags: [borrowers]
+      summary: Get borrower details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Borrower details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Borrower"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateBorrower
+      tags: [borrowers]
+      summary: Update borrower basic info
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BorrowerUpdate"
+      responses:
+        "200":
+          description: Updated borrower
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Borrower"
+    delete:
+      operationId: deleteBorrower
+      tags: [borrowers]
+      summary: Delete a borrower
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── PAYMENTS ────────────────────────────────────────────────────────────────
+  /borrowers/{borrowerId}/payments:
+    get:
+      operationId: listPayments
+      tags: [payments]
+      summary: List monthly payment records for a borrower
+      parameters:
+        - name: borrowerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+    post:
+      operationId: createPayment
+      tags: [payments]
+      summary: Record a monthly payment
+      parameters:
+        - name: borrowerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInput"
+      responses:
+        "201":
+          description: Created payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+
+  /borrowers/{borrowerId}/payments/{paymentId}:
+    patch:
+      operationId: updatePayment
+      tags: [payments]
+      summary: Update a payment record
+      parameters:
+        - name: borrowerId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentUpdate"
+      responses:
+        "200":
+          description: Updated payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+    delete:
+      operationId: deletePayment
+      tags: [payments]
+      summary: Delete a payment record
+      parameters:
+        - name: borrowerId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── ANALYTICS ───────────────────────────────────────────────────────────────
+  /analytics/dashboard:
+    get:
+      operationId: getDashboardStats
+      tags: [analytics]
+      summary: Current user dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /analytics/monthly:
+    get:
+      operationId: getMonthlyStats
+      tags: [analytics]
+      summary: Monthly interest and commission breakdown
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: userId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Monthly stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlyStats"
+
+  /analytics/yearly:
+    get:
+      operationId: getYearlyStats
+      tags: [analytics]
+      summary: Yearly interest and commission breakdown
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Yearly stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/YearlyStats"
+
+  /analytics/users:
+    get:
+      operationId: getUserStats
+      tags: [analytics]
+      summary: Admin - per-user interest and commission breakdown
+      responses:
+        "200":
+          description: User stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserStats"
+
+  /analytics/admin-dashboard:
+    get:
+      operationId: getAdminDashboard
+      tags: [analytics]
+      summary: Admin dashboard - overview of all loans, users, cashflow
+      responses:
+        "200":
+          description: Admin dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboard"
+
+# ─── COMPONENTS ──────────────────────────────────────────────────────────────
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    # ── User ──────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      required: [id, clerkId, email, name, role, createdAt]
+      properties:
+        id:
+          type: integer
+        clerkId:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [admin, user]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserInput:
+      type: object
+      required: [email, name, role]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+
+    UserAdminUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+        isActive:
+          type: boolean
+
+    # ── Borrower ───────────────────────────────────────────────────────────────
+    Borrower:
+      type: object
+      required: [id, userId, name, address, principalAmount, interestRate, baseInterestRate, commissionRate, startDate, status, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: ["string", "null"]
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        principalAmount:
+          type: number
+          description: Loan principal amount in currency units
+        interestRate:
+          type: number
+          description: Total monthly interest rate as percentage (e.g. 15 = 15%)
+        baseInterestRate:
+          type: number
+          description: Base interest rate, fixed at 10%
+        commissionRate:
+          type: number
+          description: Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)
+        tenure:
+          type: ["integer", "null"]
+          description: Loan tenure in months (optional)
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        status:
+          type: string
+          enum: [active, closed, defaulted]
+        notes:
+          type: ["string", "null"]
+        totalInterestEarned:
+          type: ["number", "null"]
+        totalCommissionEarned:
+          type: ["number", "null"]
+        monthsElapsed:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BorrowerInput:
+      type: object
+      required: [name, address, principalAmount, interestRate, startDate]
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        principalAmount:
+          type: number
+        interestRate:
+          type: number
+          minimum: 0
+          description: Total monthly interest % (default 10, can be higher)
+        tenure:
+          type: integer
+          description: Tenure in months (optional)
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    BorrowerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        tenure:
+          type: integer
+        endDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, closed, defaulted]
+        notes:
+          type: string
+
+    # ── Payment ────────────────────────────────────────────────────────────────
+    Payment:
+      type: object
+      required: [id, borrowerId, month, year, principalAmount, interestRate, baseInterestRate, commissionRate, interestAmount, baseInterestAmount, commissionAmount, isPaid, createdAt]
+      properties:
+        id:
+          type: integer
+        borrowerId:
+          type: integer
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        year:
+          type: integer
+        principalAmount:
+          type: number
+        interestRate:
+          type: number
+        baseInterestRate:
+          type: number
+        commissionRate:
+          type: number
+        interestAmount:
+          type: number
+          description: Total interest amount (principalAmount * interestRate / 100)
+        baseInterestAmount:
+          type: number
+          description: Base interest portion (principalAmount * 10 / 100)
+        commissionAmount:
+          type: number
+          description: Commission portion (principalAmount * commissionRate / 100)
+        isPaid:
+          type: boolean
+        paidDate:
+          type: ["string", "null"]
+          format: date
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    PaymentInput:
+      type: object
+      required: [month, year]
+      properties:
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        year:
+          type: integer
+        isPaid:
+          type: boolean
+        paidDate:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    PaymentUpdate:
+      type: object
+      properties:
+        isPaid:
+          type: boolean
+        paidDate:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    # ── Analytics ──────────────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [totalBorrowers, activeBorrowers, totalPrincipal, totalInterestEarned, totalCommissionEarned, totalBaseInterestEarned, pendingPaymentsCount, currentMonthInterest, currentMonthCommission]
+      properties:
+        totalBorrowers:
+          type: integer
+        activeBorrowers:
+          type: integer
+        closedBorrowers:
+          type: integer
+        defaultedBorrowers:
+          type: integer
+        totalPrincipal:
+          type: number
+        totalInterestEarned:
+          type: number
+        totalCommissionEarned:
+          type: number
+        totalBaseInterestEarned:
+          type: number
+        pendingPaymentsCount:
+          type: integer
+        currentMonthInterest:
+          type: number
+        currentMonthCommission:
+          type: number
+        currentMonthBaseInterest:
+          type: number
+
+    MonthlyStats:
+      type: object
+      required: [month, year, totalInterest, baseInterest, commission, paymentsCount, paidCount]
+      properties:
+        month:
+          type: integer
+        year:
+          type: integer
+        totalInterest:
+          type: number
+        baseInterest:
+          type: number
+        commission:
+          type: number
+        paymentsCount:
+          type: integer
+        paidCount:
+          type: integer
+        principalOutstanding:
+          type: ["number", "null"]
+
+    YearlyStats:
+      type: object
+      required: [year, totalInterest, baseInterest, commission, paymentsCount, paidCount]
+      properties:
+        year:
+          type: integer
+        totalInterest:
+          type: number
+        baseInterest:
+          type: number
+        commission:
+          type: number
+        paymentsCount:
+          type: integer
+        paidCount:
+          type: integer
+
+    UserStats:
+      type: object
+      required: [userId, userName, totalBorrowers, totalPrincipal, totalInterest, totalBaseInterest, totalCommission]
+      properties:
+        userId:
+          type: integer
+        userName:
+          type: string
+        userEmail:
+          type: string
+        totalBorrowers:
+          type: integer
+        activeBorrowers:
+          type: integer
+        totalPrincipal:
+          type: number
+        totalInterest:
+          type: number
+        totalBaseInterest:
+          type: number
+        totalCommission:
+          type: number
+
+    AdminDashboard:
+      type: object
+      required: [totalUsers, activeUsers, totalBorrowers, activeBorrowers, totalPrincipalDeployed, totalInterestEarned, totalBaseInterestEarned, totalCommissionEarned, monthlyTrend, topPerformers]
+      properties:
+        totalUsers:
+          type: integer
+        activeUsers:
+          type: integer
+        totalBorrowers:
+          type: integer
+        activeBorrowers:
+          type: integer
+        totalPrincipalDeployed:
+          type: number
+        totalInterestEarned:
+          type: number
+        totalBaseInterestEarned:
+          type: number
+        totalCommissionEarned:
+          type: number
+        monthlyTrend:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyStats"
+        topPerformers:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserStats"

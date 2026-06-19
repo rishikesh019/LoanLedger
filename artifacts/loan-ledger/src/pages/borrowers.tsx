@@ -1,0 +1,276 @@
+import { useState } from "react";
+import { useListBorrowers, useCreateBorrower, useDeleteBorrower, getListBorrowersQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Link } from "wouter";
+import { Search, Plus, IndianRupee, Trash2, Eye } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+const borrowerSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  address: z.string().min(1, "Address is required"),
+  phone: z.string().optional(),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  principalAmount: z.coerce.number().min(1, "Amount must be positive"),
+  interestRate: z.coerce.number().min(0, "Rate must be non-negative").default(10),
+  startDate: z.string().min(1, "Start date is required"),
+  tenure: z.coerce.number().optional(),
+  notes: z.string().optional(),
+});
+
+type BorrowerFormData = z.infer<typeof borrowerSchema>;
+
+function statusBadge(status: string) {
+  const map: Record<string, string> = {
+    active: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    closed: "bg-slate-100 text-slate-600 border-slate-200",
+    defaulted: "bg-red-50 text-red-700 border-red-200",
+  };
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${map[status] ?? "bg-slate-100 text-slate-600"}`}>{status}</span>;
+}
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount);
+}
+
+export default function Borrowers() {
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [showAdd, setShowAdd] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const params = { search: search || undefined, status: statusFilter as any };
+  const { data: borrowers, isLoading } = useListBorrowers(params, { query: { queryKey: getListBorrowersQueryKey(params) } });
+  const createBorrower = useCreateBorrower();
+  const deleteBorrower = useDeleteBorrower();
+
+  const form = useForm<BorrowerFormData>({
+    resolver: zodResolver(borrowerSchema),
+    defaultValues: { interestRate: 10, startDate: new Date().toISOString().split("T")[0] },
+  });
+
+  const onSubmit = (data: BorrowerFormData) => {
+    createBorrower.mutate(
+      { data: { ...data, phone: data.phone || undefined, email: data.email || undefined, notes: data.notes || undefined } },
+      {
+        onSuccess: () => {
+          toast({ title: "Borrower added", description: `${data.name} has been added successfully.` });
+          queryClient.invalidateQueries({ queryKey: getListBorrowersQueryKey() });
+          setShowAdd(false);
+          form.reset({ interestRate: 10, startDate: new Date().toISOString().split("T")[0] });
+        },
+        onError: () => toast({ title: "Error", description: "Failed to add borrower.", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDelete = (id: number, name: string) => {
+    if (!confirm(`Delete borrower "${name}"? This will also delete all payment records.`)) return;
+    deleteBorrower.mutate({ id }, {
+      onSuccess: () => {
+        toast({ title: "Deleted", description: `${name} removed.` });
+        queryClient.invalidateQueries({ queryKey: getListBorrowersQueryKey() });
+      },
+    });
+  };
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="borrowers-page">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Borrowers</h1>
+          <p className="text-slate-500 text-sm mt-1">{borrowers?.length ?? 0} total borrowers</p>
+        </div>
+        <Button onClick={() => setShowAdd(true)} className="bg-slate-900 hover:bg-slate-800" data-testid="button-add-borrower">
+          <Plus className="h-4 w-4 mr-2" /> Add Borrower
+        </Button>
+      </div>
+
+      <div className="flex gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            placeholder="Search by name, address, phone..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-borrowers"
+          />
+        </div>
+        <Select value={statusFilter ?? "all"} onValueChange={v => setStatusFilter(v === "all" ? undefined : v)}>
+          <SelectTrigger className="w-36" data-testid="select-status-filter">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="closed">Closed</SelectItem>
+            <SelectItem value="defaulted">Defaulted</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Card className="border-slate-200">
+        {isLoading ? (
+          <CardContent className="p-6 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
+          </CardContent>
+        ) : !borrowers || borrowers.length === 0 ? (
+          <CardContent className="py-16 text-center">
+            <IndianRupee className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+            <p className="text-slate-500">No borrowers found</p>
+            <button onClick={() => setShowAdd(true)} className="text-emerald-600 text-sm mt-2 hover:underline">Add your first borrower</button>
+          </CardContent>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Borrower</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Principal</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rate</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Base / Commission</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Monthly Interest</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {borrowers.map(b => {
+                  const monthlyInterest = (b.principalAmount * b.interestRate) / 100;
+                  return (
+                    <tr key={b.id} className="hover:bg-slate-50 transition-colors" data-testid={`row-borrower-${b.id}`}>
+                      <td className="px-6 py-4">
+                        <p className="font-medium text-slate-900">{b.name}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{b.address}</p>
+                        {b.phone && <p className="text-xs text-slate-400">{b.phone}</p>}
+                      </td>
+                      <td className="px-6 py-4 text-right font-semibold text-slate-900">{formatCurrency(b.principalAmount)}</td>
+                      <td className="px-6 py-4 text-right font-medium text-slate-700">{b.interestRate}%</td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-slate-600 text-xs">{b.baseInterestRate}% base</p>
+                        <p className="text-emerald-600 text-xs font-medium">{b.commissionRate}% commission</p>
+                      </td>
+                      <td className="px-6 py-4 text-right font-medium text-slate-900">{formatCurrency(monthlyInterest)}</td>
+                      <td className="px-6 py-4">{statusBadge(b.status)}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Link href={`/borrowers/${b.id}`}>
+                            <button className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-900" data-testid={`button-view-borrower-${b.id}`}>
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          </Link>
+                          <button onClick={() => handleDelete(b.id, b.name)} className="p-1.5 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-600" data-testid={`button-delete-borrower-${b.id}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent className="max-w-lg" data-testid="dialog-add-borrower">
+          <DialogHeader>
+            <DialogTitle>Add New Borrower</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl><Input placeholder="Borrower name" {...field} data-testid="input-borrower-name" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="address" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Address</FormLabel>
+                    <FormControl><Textarea placeholder="Full address" {...field} rows={2} data-testid="input-borrower-address" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="phone" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl><Input placeholder="+91 99999 99999" {...field} data-testid="input-borrower-phone" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="email" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email (optional)</FormLabel>
+                    <FormControl><Input placeholder="email@example.com" {...field} data-testid="input-borrower-email" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="principalAmount" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Loan Amount (₹)</FormLabel>
+                    <FormControl><Input type="number" placeholder="100000" {...field} data-testid="input-borrower-amount" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="interestRate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Interest Rate (%/month)</FormLabel>
+                    <FormControl><Input type="number" step="0.5" placeholder="10" {...field} data-testid="input-borrower-rate" /></FormControl>
+                    <FormMessage />
+                    {form.watch("interestRate") > 10 && (
+                      <p className="text-xs text-emerald-600">Commission: {(form.watch("interestRate") - 10).toFixed(1)}% above base</p>
+                    )}
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="startDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl><Input type="date" {...field} data-testid="input-borrower-start-date" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="tenure" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tenure (months, optional)</FormLabel>
+                    <FormControl><Input type="number" placeholder="12" {...field} value={field.value ?? ""} data-testid="input-borrower-tenure" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="notes" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Notes (optional)</FormLabel>
+                    <FormControl><Textarea placeholder="Any notes about this loan..." {...field} rows={2} data-testid="input-borrower-notes" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+                <Button type="submit" disabled={createBorrower.isPending} className="bg-slate-900 hover:bg-slate-800" data-testid="button-submit-borrower">
+                  {createBorrower.isPending ? "Adding..." : "Add Borrower"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
