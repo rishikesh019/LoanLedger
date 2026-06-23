@@ -14,6 +14,11 @@ import { requireUser } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
+/** Round to 2 decimal places to avoid floating-point noise in calculations */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 router.get("/borrowers/:borrowerId/payments", requireUser, async (req, res): Promise<void> => {
   const appUser = (req as any).appUser;
   const params = ListPaymentsParams.safeParse(req.params);
@@ -33,7 +38,17 @@ router.get("/borrowers/:borrowerId/payments", requireUser, async (req, res): Pro
   const payments = await db.select().from(paymentsTable)
     .where(eq(paymentsTable.borrowerId, params.data.borrowerId))
     .orderBy(paymentsTable.year, paymentsTable.month);
-  res.json(payments);
+  // Coerce numeric columns to numbers for the client
+  res.json(payments.map(p => ({
+    ...p,
+    principalAmount: Number(p.principalAmount),
+    interestRate: Number(p.interestRate),
+    baseInterestRate: Number(p.baseInterestRate),
+    commissionRate: Number(p.commissionRate),
+    interestAmount: Number(p.interestAmount),
+    baseInterestAmount: Number(p.baseInterestAmount),
+    commissionAmount: Number(p.commissionAmount),
+  })));
 });
 
 router.post("/borrowers/:borrowerId/payments", requireUser, async (req, res): Promise<void> => {
@@ -58,26 +73,43 @@ router.post("/borrowers/:borrowerId/payments", requireUser, async (req, res): Pr
     return;
   }
   const { month, year, isPaid = false, paidDate, notes } = parsed.data;
-  const interestAmount = (borrower.principalAmount * borrower.interestRate) / 100;
-  const baseInterestAmount = (borrower.principalAmount * borrower.baseInterestRate) / 100;
-  const commissionAmount = (borrower.principalAmount * borrower.commissionRate) / 100;
+
+  // Numeric columns come back as strings — cast before arithmetic
+  const principal = Number(borrower.principalAmount);
+  const rate = Number(borrower.interestRate);
+  const baseRate = Number(borrower.baseInterestRate);
+  const commissionRate = Number(borrower.commissionRate);
+
+  const interestAmount = round2((principal * rate) / 100);
+  const baseInterestAmount = round2((principal * baseRate) / 100);
+  const commissionAmount = round2((principal * commissionRate) / 100);
 
   const [payment] = await db.insert(paymentsTable).values({
     borrowerId: pathParams.data.borrowerId,
     month,
     year,
-    principalAmount: borrower.principalAmount,
-    interestRate: borrower.interestRate,
-    baseInterestRate: borrower.baseInterestRate,
-    commissionRate: borrower.commissionRate,
-    interestAmount,
-    baseInterestAmount,
-    commissionAmount,
+    principalAmount: String(principal),
+    interestRate: String(rate),
+    baseInterestRate: String(baseRate),
+    commissionRate: String(commissionRate),
+    interestAmount: String(interestAmount),
+    baseInterestAmount: String(baseInterestAmount),
+    commissionAmount: String(commissionAmount),
     isPaid,
     paidDate: paidDate || null,
     notes: notes || null,
   }).returning();
-  res.status(201).json(payment);
+
+  res.status(201).json({
+    ...payment,
+    principalAmount: Number(payment.principalAmount),
+    interestRate: Number(payment.interestRate),
+    baseInterestRate: Number(payment.baseInterestRate),
+    commissionRate: Number(payment.commissionRate),
+    interestAmount: Number(payment.interestAmount),
+    baseInterestAmount: Number(payment.baseInterestAmount),
+    commissionAmount: Number(payment.commissionAmount),
+  });
 });
 
 router.patch("/borrowers/:borrowerId/payments/:paymentId", requireUser, async (req, res): Promise<void> => {
@@ -109,7 +141,16 @@ router.patch("/borrowers/:borrowerId/payments/:paymentId", requireUser, async (r
     res.status(404).json({ error: "Payment not found" });
     return;
   }
-  res.json(UpdatePaymentResponse.parse(updated));
+  res.json({
+    ...updated,
+    principalAmount: Number(updated.principalAmount),
+    interestRate: Number(updated.interestRate),
+    baseInterestRate: Number(updated.baseInterestRate),
+    commissionRate: Number(updated.commissionRate),
+    interestAmount: Number(updated.interestAmount),
+    baseInterestAmount: Number(updated.baseInterestAmount),
+    commissionAmount: Number(updated.commissionAmount),
+  });
 });
 
 router.delete("/borrowers/:borrowerId/payments/:paymentId", requireUser, async (req, res): Promise<void> => {

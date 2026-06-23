@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, or } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, borrowersTable, paymentsTable, usersTable } from "@workspace/db";
 import {
   ListBorrowersQueryParams,
@@ -11,21 +11,42 @@ import {
   UpdateBorrowerResponse,
   DeleteBorrowerParams,
 } from "@workspace/api-zod";
-import { requireUser, requireAdmin } from "../middlewares/auth";
+import { requireUser } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
 const BASE_INTEREST_RATE = 10;
 
-async function enrichBorrower(borrower: any, withStats = true) {
-  if (!withStats) return borrower;
-  const payments = await db.select().from(paymentsTable).where(eq(paymentsTable.borrowerId, borrower.id));
-  const totalInterestEarned = payments.reduce((sum, p) => sum + (p.isPaid ? p.interestAmount : 0), 0);
-  const totalCommissionEarned = payments.reduce((sum, p) => sum + (p.isPaid ? p.commissionAmount : 0), 0);
+/** Round to 2 decimal places */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Coerce numeric/string fields from DB to JS numbers */
+function coerceBorrower(b: any) {
+  return {
+    ...b,
+    principalAmount: Number(b.principalAmount),
+    interestRate: Number(b.interestRate),
+    baseInterestRate: Number(b.baseInterestRate),
+    commissionRate: Number(b.commissionRate),
+  };
+}
+
+async function enrichBorrower(rawBorrower: any) {
+  const b = coerceBorrower(rawBorrower);
+  const payments = await db.select().from(paymentsTable).where(eq(paymentsTable.borrowerId, b.id));
+  const totalInterestEarned = payments.reduce((sum, p) => sum + (p.isPaid ? Number(p.interestAmount) : 0), 0);
+  const totalCommissionEarned = payments.reduce((sum, p) => sum + (p.isPaid ? Number(p.commissionAmount) : 0), 0);
   const now = new Date();
-  const start = new Date(borrower.startDate);
+  const start = new Date(b.startDate);
   const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
-  return { ...borrower, totalInterestEarned, totalCommissionEarned, monthsElapsed: Math.max(0, monthsElapsed) };
+  return {
+    ...b,
+    totalInterestEarned: round2(totalInterestEarned),
+    totalCommissionEarned: round2(totalCommissionEarned),
+    monthsElapsed: Math.max(0, monthsElapsed),
+  };
 }
 
 router.get("/borrowers", requireUser, async (req, res): Promise<void> => {
@@ -92,14 +113,14 @@ router.post("/borrowers", requireUser, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { interestRate = 10, ...rest } = parsed.data;
-  const commissionRate = Math.max(0, interestRate - BASE_INTEREST_RATE);
+  const interestRate = Number(parsed.data.interestRate ?? BASE_INTEREST_RATE);
+  const commissionRate = round2(Math.max(0, interestRate - BASE_INTEREST_RATE));
   const [borrower] = await db.insert(borrowersTable).values({
-    ...rest,
+    ...parsed.data,
     userId: appUser.id,
-    interestRate,
-    baseInterestRate: BASE_INTEREST_RATE,
-    commissionRate,
+    interestRate: String(interestRate),
+    baseInterestRate: String(BASE_INTEREST_RATE),
+    commissionRate: String(commissionRate),
     status: "active",
   }).returning();
   const enriched = await enrichBorrower(borrower);
@@ -147,7 +168,7 @@ router.get("/borrowers/:id", requireUser, async (req, res): Promise<void> => {
     return;
   }
   const enriched = await enrichBorrower(borrower);
-  res.json(GetBorrowerResponse.parse(enriched));
+  res.json(enriched);
 });
 
 router.patch("/borrowers/:id", requireUser, async (req, res): Promise<void> => {
@@ -171,12 +192,19 @@ router.patch("/borrowers/:id", requireUser, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // Recalculate commission if interest rate changes
+  const updates: any = { ...parsed.data, updatedAt: new Date() };
+  if (parsed.data.interestRate !== undefined) {
+    const newRate = Number(parsed.data.interestRate);
+    updates.interestRate = String(newRate);
+    updates.commissionRate = String(round2(Math.max(0, newRate - BASE_INTEREST_RATE)));
+  }
   const [updated] = await db.update(borrowersTable)
-    .set({ ...parsed.data, updatedAt: new Date() })
+    .set(updates)
     .where(eq(borrowersTable.id, params.data.id))
     .returning();
   const enriched = await enrichBorrower(updated);
-  res.json(UpdateBorrowerResponse.parse(enriched));
+  res.json(enriched);
 });
 
 router.delete("/borrowers/:id", requireUser, async (req, res): Promise<void> => {

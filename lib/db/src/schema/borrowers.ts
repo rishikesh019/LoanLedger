@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -10,10 +10,10 @@ export const borrowersTable = pgTable("borrowers", {
   address: text("address").notNull(),
   phone: text("phone"),
   email: text("email"),
-  principalAmount: real("principal_amount").notNull(),
-  interestRate: real("interest_rate").notNull().default(10),
-  baseInterestRate: real("base_interest_rate").notNull().default(10),
-  commissionRate: real("commission_rate").notNull().default(0),
+  principalAmount: numeric("principal_amount", { precision: 15, scale: 2 }).notNull(),
+  interestRate: numeric("interest_rate", { precision: 6, scale: 2 }).notNull().default("10"),
+  baseInterestRate: numeric("base_interest_rate", { precision: 6, scale: 2 }).notNull().default("10"),
+  commissionRate: numeric("commission_rate", { precision: 6, scale: 2 }).notNull().default("0"),
   tenure: integer("tenure"),
   startDate: text("start_date").notNull(),
   endDate: text("end_date"),

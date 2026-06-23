@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, borrowersTable, paymentsTable, usersTable } from "@workspace/db";
 import {
   GetDashboardStatsResponse,
@@ -10,18 +10,20 @@ import { requireUser, requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 router.get("/analytics/dashboard", requireUser, async (req, res): Promise<void> => {
   const appUser = (req as any).appUser;
   const isAdmin = appUser.role === "admin";
 
-  const userCondition = isAdmin ? undefined : eq(borrowersTable.userId, appUser.id);
-
   const borrowers = await db.select().from(borrowersTable)
-    .where(userCondition);
+    .where(isAdmin ? undefined : eq(borrowersTable.userId, appUser.id));
 
   const payments = await db.select().from(paymentsTable)
     .leftJoin(borrowersTable, eq(paymentsTable.borrowerId, borrowersTable.id))
-    .where(userCondition ? eq(borrowersTable.userId, appUser.id) : undefined);
+    .where(isAdmin ? undefined : eq(borrowersTable.userId, appUser.id));
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -30,20 +32,20 @@ router.get("/analytics/dashboard", requireUser, async (req, res): Promise<void> 
   const activeBorrowers = borrowers.filter(b => b.status === "active").length;
   const closedBorrowers = borrowers.filter(b => b.status === "closed").length;
   const defaultedBorrowers = borrowers.filter(b => b.status === "defaulted").length;
-  const totalPrincipal = borrowers.reduce((sum, b) => sum + b.principalAmount, 0);
+  const totalPrincipal = round2(borrowers.reduce((sum, b) => sum + Number(b.principalAmount), 0));
 
   const paidPayments = payments.filter(p => p.payments.isPaid);
-  const totalInterestEarned = paidPayments.reduce((sum, p) => sum + p.payments.interestAmount, 0);
-  const totalBaseInterestEarned = paidPayments.reduce((sum, p) => sum + p.payments.baseInterestAmount, 0);
-  const totalCommissionEarned = paidPayments.reduce((sum, p) => sum + p.payments.commissionAmount, 0);
+  const totalInterestEarned = round2(paidPayments.reduce((sum, p) => sum + Number(p.payments.interestAmount), 0));
+  const totalBaseInterestEarned = round2(paidPayments.reduce((sum, p) => sum + Number(p.payments.baseInterestAmount), 0));
+  const totalCommissionEarned = round2(paidPayments.reduce((sum, p) => sum + Number(p.payments.commissionAmount), 0));
   const pendingPaymentsCount = payments.filter(p => !p.payments.isPaid).length;
 
   const currentMonthPayments = payments.filter(
     p => p.payments.month === currentMonth && p.payments.year === currentYear
   );
-  const currentMonthInterest = currentMonthPayments.filter(p => p.payments.isPaid).reduce((sum, p) => sum + p.payments.interestAmount, 0);
-  const currentMonthBaseInterest = currentMonthPayments.filter(p => p.payments.isPaid).reduce((sum, p) => sum + p.payments.baseInterestAmount, 0);
-  const currentMonthCommission = currentMonthPayments.filter(p => p.payments.isPaid).reduce((sum, p) => sum + p.payments.commissionAmount, 0);
+  const currentMonthInterest = round2(currentMonthPayments.filter(p => p.payments.isPaid).reduce((sum, p) => sum + Number(p.payments.interestAmount), 0));
+  const currentMonthBaseInterest = round2(currentMonthPayments.filter(p => p.payments.isPaid).reduce((sum, p) => sum + Number(p.payments.baseInterestAmount), 0));
+  const currentMonthCommission = round2(currentMonthPayments.filter(p => p.payments.isPaid).reduce((sum, p) => sum + Number(p.payments.commissionAmount), 0));
 
   res.json(GetDashboardStatsResponse.parse({
     totalBorrowers: borrowers.length,
@@ -93,14 +95,16 @@ router.get("/analytics/monthly", requireUser, async (req, res): Promise<void> =>
     monthMap[key].paymentsCount++;
     if (p.isPaid) {
       monthMap[key].paidCount++;
-      monthMap[key].totalInterest += p.interestAmount;
-      monthMap[key].baseInterest += p.baseInterestAmount;
-      monthMap[key].commission += p.commissionAmount;
+      monthMap[key].totalInterest += Number(p.interestAmount);
+      monthMap[key].baseInterest += Number(p.baseInterestAmount);
+      monthMap[key].commission += Number(p.commissionAmount);
     }
-    monthMap[key].principalOutstanding += p.principalAmount;
+    monthMap[key].principalOutstanding += Number(p.principalAmount);
   }
 
-  const result = Object.values(monthMap).sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
+  const result = Object.values(monthMap)
+    .map(m => ({ ...m, totalInterest: round2(m.totalInterest), baseInterest: round2(m.baseInterest), commission: round2(m.commission), principalOutstanding: round2(m.principalOutstanding) }))
+    .sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
   res.json(result);
 });
 
@@ -133,13 +137,15 @@ router.get("/analytics/yearly", requireUser, async (req, res): Promise<void> => 
     yearMap[p.year].paymentsCount++;
     if (p.isPaid) {
       yearMap[p.year].paidCount++;
-      yearMap[p.year].totalInterest += p.interestAmount;
-      yearMap[p.year].baseInterest += p.baseInterestAmount;
-      yearMap[p.year].commission += p.commissionAmount;
+      yearMap[p.year].totalInterest += Number(p.interestAmount);
+      yearMap[p.year].baseInterest += Number(p.baseInterestAmount);
+      yearMap[p.year].commission += Number(p.commissionAmount);
     }
   }
 
-  const result = Object.values(yearMap).sort((a, b) => a.year - b.year);
+  const result = Object.values(yearMap)
+    .map(y => ({ ...y, totalInterest: round2(y.totalInterest), baseInterest: round2(y.baseInterest), commission: round2(y.commission) }))
+    .sort((a, b) => a.year - b.year);
   res.json(result);
 });
 
@@ -158,10 +164,10 @@ router.get("/analytics/users", requireAdmin, async (req, res): Promise<void> => 
       userEmail: user.email,
       totalBorrowers: borrowers.length,
       activeBorrowers: borrowers.filter(b => b.status === "active").length,
-      totalPrincipal: borrowers.reduce((sum, b) => sum + b.principalAmount, 0),
-      totalInterest: paidPayments.reduce((sum, p) => sum + p.payments.interestAmount, 0),
-      totalBaseInterest: paidPayments.reduce((sum, p) => sum + p.payments.baseInterestAmount, 0),
-      totalCommission: paidPayments.reduce((sum, p) => sum + p.payments.commissionAmount, 0),
+      totalPrincipal: round2(borrowers.reduce((sum, b) => sum + Number(b.principalAmount), 0)),
+      totalInterest: round2(paidPayments.reduce((sum, p) => sum + Number(p.payments.interestAmount), 0)),
+      totalBaseInterest: round2(paidPayments.reduce((sum, p) => sum + Number(p.payments.baseInterestAmount), 0)),
+      totalCommission: round2(paidPayments.reduce((sum, p) => sum + Number(p.payments.commissionAmount), 0)),
     };
   }));
 
@@ -175,9 +181,9 @@ router.get("/analytics/admin-dashboard", requireAdmin, async (req, res): Promise
     .leftJoin(borrowersTable, eq(paymentsTable.borrowerId, borrowersTable.id));
 
   const paidPayments = payments.filter(p => p.payments.isPaid);
-  const totalInterestEarned = paidPayments.reduce((sum, p) => sum + p.payments.interestAmount, 0);
-  const totalBaseInterestEarned = paidPayments.reduce((sum, p) => sum + p.payments.baseInterestAmount, 0);
-  const totalCommissionEarned = paidPayments.reduce((sum, p) => sum + p.payments.commissionAmount, 0);
+  const totalInterestEarned = round2(paidPayments.reduce((sum, p) => sum + Number(p.payments.interestAmount), 0));
+  const totalBaseInterestEarned = round2(paidPayments.reduce((sum, p) => sum + Number(p.payments.baseInterestAmount), 0));
+  const totalCommissionEarned = round2(paidPayments.reduce((sum, p) => sum + Number(p.payments.commissionAmount), 0));
 
   const monthMap: Record<string, any> = {};
   for (const row of payments) {
@@ -189,12 +195,15 @@ router.get("/analytics/admin-dashboard", requireAdmin, async (req, res): Promise
     monthMap[key].paymentsCount++;
     if (p.isPaid) {
       monthMap[key].paidCount++;
-      monthMap[key].totalInterest += p.interestAmount;
-      monthMap[key].baseInterest += p.baseInterestAmount;
-      monthMap[key].commission += p.commissionAmount;
+      monthMap[key].totalInterest += Number(p.interestAmount);
+      monthMap[key].baseInterest += Number(p.baseInterestAmount);
+      monthMap[key].commission += Number(p.commissionAmount);
     }
   }
-  const monthlyTrend = Object.values(monthMap).sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month).slice(-12);
+  const monthlyTrend = Object.values(monthMap)
+    .map(m => ({ ...m, totalInterest: round2(m.totalInterest), baseInterest: round2(m.baseInterest), commission: round2(m.commission) }))
+    .sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month)
+    .slice(-12);
 
   const activeUsers = users.filter(u => u.isActive);
   const topPerformers = await Promise.all(activeUsers.map(async (user) => {
@@ -209,10 +218,10 @@ router.get("/analytics/admin-dashboard", requireAdmin, async (req, res): Promise
       userEmail: user.email,
       totalBorrowers: userBorrowers.length,
       activeBorrowers: userBorrowers.filter(b => b.status === "active").length,
-      totalPrincipal: userBorrowers.reduce((sum, b) => sum + b.principalAmount, 0),
-      totalInterest: paid.reduce((sum, p) => sum + p.payments.interestAmount, 0),
-      totalBaseInterest: paid.reduce((sum, p) => sum + p.payments.baseInterestAmount, 0),
-      totalCommission: paid.reduce((sum, p) => sum + p.payments.commissionAmount, 0),
+      totalPrincipal: round2(userBorrowers.reduce((sum, b) => sum + Number(b.principalAmount), 0)),
+      totalInterest: round2(paid.reduce((sum, p) => sum + Number(p.payments.interestAmount), 0)),
+      totalBaseInterest: round2(paid.reduce((sum, p) => sum + Number(p.payments.baseInterestAmount), 0)),
+      totalCommission: round2(paid.reduce((sum, p) => sum + Number(p.payments.commissionAmount), 0)),
     };
   }));
   topPerformers.sort((a, b) => b.totalInterest - a.totalInterest);
@@ -222,7 +231,7 @@ router.get("/analytics/admin-dashboard", requireAdmin, async (req, res): Promise
     activeUsers: users.filter(u => u.isActive).length,
     totalBorrowers: borrowers.length,
     activeBorrowers: borrowers.filter(b => b.status === "active").length,
-    totalPrincipalDeployed: borrowers.reduce((sum, b) => sum + b.principalAmount, 0),
+    totalPrincipalDeployed: round2(borrowers.reduce((sum, b) => sum + Number(b.principalAmount), 0)),
     totalInterestEarned,
     totalBaseInterestEarned,
     totalCommissionEarned,
