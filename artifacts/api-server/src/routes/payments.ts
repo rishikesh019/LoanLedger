@@ -112,6 +112,103 @@ router.post("/borrowers/:borrowerId/payments", requireUser, async (req, res): Pr
   });
 });
 
+router.post("/borrowers/:borrowerId/payments/bulk", requireUser, async (req, res): Promise<void> => {
+  const appUser = (req as any).appUser;
+  const pathParams = CreatePaymentParams.safeParse(req.params);
+  if (!pathParams.success) {
+    res.status(400).json({ error: pathParams.error.message });
+    return;
+  }
+  const [borrower] = await db.select().from(borrowersTable).where(eq(borrowersTable.id, pathParams.data.borrowerId));
+  if (!borrower) {
+    res.status(404).json({ error: "Borrower not found" });
+    return;
+  }
+  if (appUser.role !== "admin" && borrower.userId !== appUser.id) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const { fromMonth, fromYear, toMonth, toYear, isPaid = false, paidDate, notes } = req.body as {
+    fromMonth: number; fromYear: number; toMonth: number; toYear: number;
+    isPaid?: boolean; paidDate?: string; notes?: string;
+  };
+
+  if (!fromMonth || !fromYear || !toMonth || !toYear) {
+    res.status(400).json({ error: "fromMonth, fromYear, toMonth, toYear are required" });
+    return;
+  }
+
+  const from = fromYear * 12 + (fromMonth - 1);
+  const to = toYear * 12 + (toMonth - 1);
+  if (from > to) {
+    res.status(400).json({ error: "From date must be before or equal to To date" });
+    return;
+  }
+  if (to - from > 119) {
+    res.status(400).json({ error: "Range cannot exceed 120 months" });
+    return;
+  }
+
+  // Fetch existing payments to detect duplicates
+  const existing = await db.select().from(paymentsTable)
+    .where(eq(paymentsTable.borrowerId, pathParams.data.borrowerId));
+  const existingSet = new Set(existing.map(p => `${p.year}-${p.month}`));
+
+  const principal = Number(borrower.principalAmount);
+  const rate = Number(borrower.interestRate);
+  const baseRate = Number(borrower.baseInterestRate);
+  const commissionRate = Number(borrower.commissionRate);
+  const interestAmount = round2((principal * rate) / 100);
+  const baseInterestAmount = round2((principal * baseRate) / 100);
+  const commissionAmount = round2((principal * commissionRate) / 100);
+
+  const toInsert: typeof paymentsTable.$inferInsert[] = [];
+  for (let cursor = from; cursor <= to; cursor++) {
+    const y = Math.floor(cursor / 12);
+    const m = (cursor % 12) + 1;
+    if (!existingSet.has(`${y}-${m}`)) {
+      toInsert.push({
+        borrowerId: pathParams.data.borrowerId,
+        month: m,
+        year: y,
+        principalAmount: String(principal),
+        interestRate: String(rate),
+        baseInterestRate: String(baseRate),
+        commissionRate: String(commissionRate),
+        interestAmount: String(interestAmount),
+        baseInterestAmount: String(baseInterestAmount),
+        commissionAmount: String(commissionAmount),
+        isPaid,
+        paidDate: paidDate || null,
+        notes: notes || null,
+      });
+    }
+  }
+
+  const skipped = (to - from + 1) - toInsert.length;
+  if (toInsert.length === 0) {
+    res.json({ created: 0, skipped, payments: [] });
+    return;
+  }
+
+  const created = await db.insert(paymentsTable).values(toInsert).returning();
+  res.status(201).json({
+    created: created.length,
+    skipped,
+    payments: created.map(p => ({
+      ...p,
+      principalAmount: Number(p.principalAmount),
+      interestRate: Number(p.interestRate),
+      baseInterestRate: Number(p.baseInterestRate),
+      commissionRate: Number(p.commissionRate),
+      interestAmount: Number(p.interestAmount),
+      baseInterestAmount: Number(p.baseInterestAmount),
+      commissionAmount: Number(p.commissionAmount),
+    })),
+  });
+});
+
 router.patch("/borrowers/:borrowerId/payments/:paymentId", requireUser, async (req, res): Promise<void> => {
   const appUser = (req as any).appUser;
   const params = UpdatePaymentParams.safeParse(req.params);
