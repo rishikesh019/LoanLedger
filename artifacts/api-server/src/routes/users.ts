@@ -4,8 +4,6 @@ import { db, usersTable } from "@workspace/db";
 import { getAuth, clerkClient } from "@clerk/express";
 import {
   GetMeResponse,
-  UpdateMeBody,
-  UpdateMeResponse,
   ListUsersResponseItem,
   CreateUserBody,
   GetUserParams,
@@ -18,36 +16,9 @@ import { requireUser, requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-async function sendClerkInvitation(email: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const client = await clerkClient();
-    await client.invitations.createInvitation({
-      emailAddress: email,
-      ignoreExisting: true,
-    } as any);
-    return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: String(err?.message ?? err) };
-  }
-}
-
 router.get("/users/me", requireUser, async (req, res): Promise<void> => {
   const user = (req as any).appUser;
   res.json(GetMeResponse.parse(user));
-});
-
-router.patch("/users/me", requireUser, async (req, res): Promise<void> => {
-  const user = (req as any).appUser;
-  const parsed = UpdateMeBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [updated] = await db.update(usersTable)
-    .set({ ...parsed.data, updatedAt: new Date() })
-    .where(eq(usersTable.id, user.id))
-    .returning();
-  res.json(UpdateMeResponse.parse(updated));
 });
 
 router.get("/users", requireAdmin, async (req, res): Promise<void> => {
@@ -62,6 +33,7 @@ router.post("/users", requireAdmin, async (req, res): Promise<void> => {
     return;
   }
 
+  // First create the local DB record with a placeholder clerkId
   const [user] = await db.insert(usersTable).values({
     clerkId: `manual_${Date.now()}`,
     email: parsed.data.email,
@@ -71,33 +43,31 @@ router.post("/users", requireAdmin, async (req, res): Promise<void> => {
     isActive: true,
   }).returning();
 
-  // Auto-send Clerk invitation so the user can sign in immediately
-  const invite = await sendClerkInvitation(parsed.data.email);
-  if (!invite.ok) {
-    req.log?.warn({ email: parsed.data.email, err: invite.error }, "Clerk invitation failed (user still created)");
+  // Also create the user in Clerk so they can log in.
+  // They will use "Forgot password?" on the sign-in page to set their own password.
+  try {
+    const nameParts = parsed.data.name.trim().split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(" ") || undefined;
+
+    const clerkUser = await clerkClient.users.createUser({
+      emailAddress: [parsed.data.email],
+      firstName,
+      lastName,
+      skipPasswordRequirement: true,
+    } as any);
+
+    // Link local record to the real Clerk ID immediately
+    await db.update(usersTable)
+      .set({ clerkId: clerkUser.id, updatedAt: new Date() })
+      .where(eq(usersTable.id, user.id));
+
+    user.clerkId = clerkUser.id;
+  } catch (err: any) {
+    req.log?.warn({ email: parsed.data.email, err: String(err?.message ?? err) }, "Clerk user creation failed — local record created with placeholder clerkId");
   }
 
   res.status(201).json(GetUserResponse.parse(user));
-});
-
-// Resend (or send first-time) invitation for an existing local user
-router.post("/users/:id/invite", requireAdmin, async (req, res): Promise<void> => {
-  const params = GetUserParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, params.data.id));
-  if (!user) {
-    res.status(404).json({ error: "User not found" });
-    return;
-  }
-  const invite = await sendClerkInvitation(user.email);
-  if (!invite.ok) {
-    res.status(500).json({ error: `Failed to send invitation: ${invite.error}` });
-    return;
-  }
-  res.json({ ok: true, message: `Invitation sent to ${user.email}` });
 });
 
 router.get("/users/:id", requireAdmin, async (req, res): Promise<void> => {

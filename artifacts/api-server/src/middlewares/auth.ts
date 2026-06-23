@@ -1,12 +1,11 @@
 import { getAuth, clerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 import { db, usersTable } from "@workspace/db";
-import { eq, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 async function fetchClerkUser(clerkId: string) {
   try {
-    const client = await clerkClient();
-    const clerkUser = await client.users.getUser(clerkId);
+    const clerkUser = await clerkClient.users.getUser(clerkId);
     const email =
       clerkUser.emailAddresses.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress ??
       clerkUser.emailAddresses[0]?.emailAddress ??

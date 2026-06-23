@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useListUsers, useCreateUser, useUpdateUser, getListUsersQueryKey } from "@workspace/api-client-react";
-import { useAuth } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Shield, User, Mail, Phone, Search, Send } from "lucide-react";
+import { Plus, Shield, User, Mail, Phone, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const createUserSchema = z.object({
@@ -27,10 +26,8 @@ type CreateUserData = z.infer<typeof createUserSchema>;
 export default function AdminUsers() {
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
-  const [invitingId, setInvitingId] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { getToken } = useAuth();
 
   const { data: users, isLoading } = useListUsers({ query: { queryKey: getListUsersQueryKey() } });
   const createUser = useCreateUser();
@@ -50,7 +47,7 @@ export default function AdminUsers() {
       { data },
       {
         onSuccess: () => {
-          toast({ title: "User created", description: `Invitation email sent to ${data.email}.` });
+          toast({ title: "User created", description: `${data.name} can now sign in with their email.` });
           queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
           setShowCreate(false);
           form.reset({ role: "user" });
@@ -84,30 +81,6 @@ export default function AdminUsers() {
       }
     );
   };
-
-  const sendInvite = async (userId: number, email: string) => {
-    setInvitingId(userId);
-    try {
-      const token = await getToken();
-      const base = import.meta.env.BASE_URL ?? "/";
-      const res = await fetch(`${base}api/users/${userId}/invite`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        toast({ title: "Invitation sent", description: `Login invite sent to ${email}.` });
-      } else {
-        const body = await res.json().catch(() => ({}));
-        toast({ title: "Failed to send invite", description: body.error ?? "Unknown error", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Error", description: "Could not send invitation.", variant: "destructive" });
-    } finally {
-      setInvitingId(null);
-    }
-  };
-
-  const isUnlinked = (clerkId: string) => clerkId.startsWith("manual_");
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5" data-testid="admin-users-page">
@@ -157,11 +130,6 @@ export default function AdminUsers() {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-slate-900 truncate">{u.name}</p>
                       <p className="text-xs text-slate-400 truncate">{u.email}</p>
-                      {isUnlinked(u.clerkId) && (
-                        <span className="inline-flex items-center gap-1 text-xs text-amber-600 mt-0.5">
-                          <Send className="h-3 w-3" /> Invite pending
-                        </span>
-                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${u.role === "admin" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
@@ -172,17 +140,7 @@ export default function AdminUsers() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {isUnlinked(u.clerkId) && (
-                      <button
-                        onClick={() => sendInvite(u.id, u.email)}
-                        disabled={invitingId === u.id}
-                        className="flex-1 text-xs px-2.5 py-1.5 rounded-md border border-amber-200 text-amber-700 hover:bg-amber-50 text-center disabled:opacity-50"
-                        data-testid={`button-invite-${u.id}`}
-                      >
-                        {invitingId === u.id ? "Sending..." : "Send Invite"}
-                      </button>
-                    )}
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => toggleRole(u.id, u.role)}
                       className="flex-1 text-xs px-2.5 py-1.5 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100 text-center"
@@ -232,11 +190,6 @@ export default function AdminUsers() {
                                 <Phone className="h-3 w-3" /> {u.phone}
                               </div>
                             )}
-                            {isUnlinked(u.clerkId) && (
-                              <div className="flex items-center gap-1 text-amber-600 text-xs mt-0.5">
-                                <Send className="h-3 w-3" /> Invite pending — hasn't logged in yet
-                              </div>
-                            )}
                           </div>
                         </div>
                       </td>
@@ -255,17 +208,7 @@ export default function AdminUsers() {
                         {new Date(u.createdAt).toLocaleDateString("en-IN")}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {isUnlinked(u.clerkId) && (
-                            <button
-                              onClick={() => sendInvite(u.id, u.email)}
-                              disabled={invitingId === u.id}
-                              className="text-xs px-2.5 py-1 rounded-md border border-amber-200 text-amber-700 hover:bg-amber-50 disabled:opacity-50 whitespace-nowrap"
-                              data-testid={`button-invite-${u.id}`}
-                            >
-                              {invitingId === u.id ? "Sending..." : "Send Invite"}
-                            </button>
-                          )}
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => toggleRole(u.id, u.role)}
                             className="text-xs px-2.5 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100 whitespace-nowrap"
@@ -296,7 +239,9 @@ export default function AdminUsers() {
           <DialogHeader>
             <DialogTitle>Create New User</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-slate-500 -mt-2">A login invitation email will be sent automatically.</p>
+          <p className="text-sm text-slate-500 -mt-2">
+            The user will be able to sign in with their email address. They can use "Forgot password?" on the login page to set their own password.
+          </p>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField control={form.control} name="name" render={({ field }) => (
@@ -336,7 +281,7 @@ export default function AdminUsers() {
               <div className="flex justify-end gap-3 pt-2">
                 <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
                 <Button type="submit" disabled={createUser.isPending} className="bg-slate-900 hover:bg-slate-800" data-testid="button-submit-create-user">
-                  {createUser.isPending ? "Creating..." : "Create & Invite"}
+                  {createUser.isPending ? "Creating..." : "Create User"}
                 </Button>
               </div>
             </form>
