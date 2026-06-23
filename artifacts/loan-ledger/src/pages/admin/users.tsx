@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useListUsers, useCreateUser, useUpdateUser, getListUsersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,14 +83,16 @@ export default function AdminUsers() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="admin-users-page">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5" data-testid="admin-users-page">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Manage Users</h1>
-          <p className="text-slate-500 text-sm mt-1">{users?.length ?? 0} registered users</p>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Manage Users</h1>
+          <p className="text-slate-500 text-sm mt-0.5">{users?.length ?? 0} registered users</p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="bg-slate-900 hover:bg-slate-800" data-testid="button-create-user">
-          <Plus className="h-4 w-4 mr-2" /> Create User
+        <Button onClick={() => setShowCreate(true)} className="bg-slate-900 hover:bg-slate-800 flex-shrink-0" data-testid="button-create-user">
+          <Plus className="h-4 w-4 mr-1 md:mr-2" />
+          <span className="hidden sm:inline">Create User</span>
+          <span className="sm:hidden">Create</span>
         </Button>
       </div>
 
@@ -107,7 +109,7 @@ export default function AdminUsers() {
 
       <Card className="border-slate-200">
         {isLoading ? (
-          <CardContent className="p-6 space-y-3">
+          <CardContent className="p-4 space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
           </CardContent>
         ) : filteredUsers.length === 0 ? (
@@ -116,80 +118,125 @@ export default function AdminUsers() {
             <p className="text-slate-500">No users found</p>
           </CardContent>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Joined</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredUsers.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50" data-testid={`row-user-${u.id}`}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-bold text-white">{u.name.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-900">{u.name}</p>
-                          <div className="flex items-center gap-1 text-slate-400 text-xs mt-0.5">
-                            <Mail className="h-3 w-3" /> {u.email}
-                          </div>
-                          {u.phone && (
-                            <div className="flex items-center gap-1 text-slate-400 text-xs">
-                              <Phone className="h-3 w-3" /> {u.phone}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${u.role === "admin" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
-                        <Shield className="h-3 w-3" />
-                        {u.role === "admin" ? "Admin" : "User"}
+          /* Mobile: card list. Desktop: table */
+          <>
+            {/* Mobile card view */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredUsers.map(u => (
+                <div key={u.id} className="p-4 space-y-3" data-testid={`row-user-${u.id}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold text-white">{u.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-900 truncate">{u.name}</p>
+                      <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${u.role === "admin" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                        <Shield className="h-3 w-3" />{u.role === "admin" ? "Admin" : "User"}
                       </span>
-                    </td>
-                    <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${u.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                         {u.isActive ? "Active" : "Inactive"}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-right text-slate-500">
-                      {new Date(u.createdAt).toLocaleDateString("en-IN")}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => toggleRole(u.id, u.role)}
-                          className="text-xs px-2.5 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
-                          data-testid={`button-toggle-role-${u.id}`}
-                        >
-                          Make {u.role === "admin" ? "User" : "Admin"}
-                        </button>
-                        <button
-                          onClick={() => toggleActive(u.id, u.isActive ?? true)}
-                          className={`text-xs px-2.5 py-1 rounded-md border ${u.isActive ? "border-red-200 text-red-600 hover:bg-red-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}
-                          data-testid={`button-toggle-active-${u.id}`}
-                        >
-                          {u.isActive ? "Deactivate" : "Activate"}
-                        </button>
-                      </div>
-                    </td>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleRole(u.id, u.role)}
+                      className="flex-1 text-xs px-2.5 py-1.5 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100 text-center"
+                      data-testid={`button-toggle-role-${u.id}`}
+                    >
+                      Make {u.role === "admin" ? "User" : "Admin"}
+                    </button>
+                    <button
+                      onClick={() => toggleActive(u.id, u.isActive ?? true)}
+                      className={`flex-1 text-xs px-2.5 py-1.5 rounded-md border text-center ${u.isActive ? "border-red-200 text-red-600 hover:bg-red-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}
+                      data-testid={`button-toggle-active-${u.id}`}
+                    >
+                      {u.isActive ? "Deactivate" : "Activate"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                    <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Joined</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredUsers.map(u => (
+                    <tr key={u.id} className="hover:bg-slate-50" data-testid={`row-user-${u.id}`}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-bold text-white">{u.name.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900">{u.name}</p>
+                            <div className="flex items-center gap-1 text-slate-400 text-xs mt-0.5">
+                              <Mail className="h-3 w-3" /> {u.email}
+                            </div>
+                            {u.phone && (
+                              <div className="flex items-center gap-1 text-slate-400 text-xs">
+                                <Phone className="h-3 w-3" /> {u.phone}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${u.role === "admin" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                          <Shield className="h-3 w-3" />
+                          {u.role === "admin" ? "Admin" : "User"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${u.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                          {u.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right text-slate-500">
+                        {new Date(u.createdAt).toLocaleDateString("en-IN")}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => toggleRole(u.id, u.role)}
+                            className="text-xs px-2.5 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100 whitespace-nowrap"
+                            data-testid={`button-toggle-role-${u.id}`}
+                          >
+                            Make {u.role === "admin" ? "User" : "Admin"}
+                          </button>
+                          <button
+                            onClick={() => toggleActive(u.id, u.isActive ?? true)}
+                            className={`text-xs px-2.5 py-1 rounded-md border whitespace-nowrap ${u.isActive ? "border-red-200 text-red-600 hover:bg-red-50" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}
+                            data-testid={`button-toggle-active-${u.id}`}
+                          >
+                            {u.isActive ? "Deactivate" : "Activate"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent data-testid="dialog-create-user">
+        <DialogContent className="max-h-[90vh] overflow-y-auto" data-testid="dialog-create-user">
           <DialogHeader>
             <DialogTitle>Create New User</DialogTitle>
           </DialogHeader>

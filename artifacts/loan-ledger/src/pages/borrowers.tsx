@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useListBorrowers, useCreateBorrower, useDeleteBorrower, getListBorrowersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,22 +86,24 @@ export default function Borrowers() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="borrowers-page">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5" data-testid="borrowers-page">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Borrowers</h1>
-          <p className="text-slate-500 text-sm mt-1">{borrowers?.length ?? 0} total borrowers</p>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Borrowers</h1>
+          <p className="text-slate-500 text-sm mt-0.5">{borrowers?.length ?? 0} total</p>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="bg-slate-900 hover:bg-slate-800" data-testid="button-add-borrower">
-          <Plus className="h-4 w-4 mr-2" /> Add Borrower
+        <Button onClick={() => setShowAdd(true)} className="bg-slate-900 hover:bg-slate-800 flex-shrink-0" data-testid="button-add-borrower">
+          <Plus className="h-4 w-4 mr-1 md:mr-2" />
+          <span className="hidden sm:inline">Add Borrower</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
 
-      <div className="flex gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex gap-2 md:gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Search by name, address, phone..."
+            placeholder="Search..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="pl-9"
@@ -110,8 +111,8 @@ export default function Borrowers() {
           />
         </div>
         <Select value={statusFilter ?? "all"} onValueChange={v => setStatusFilter(v === "all" ? undefined : v)}>
-          <SelectTrigger className="w-36" data-testid="select-status-filter">
-            <SelectValue placeholder="All Status" />
+          <SelectTrigger className="w-28 md:w-36" data-testid="select-status-filter">
+            <SelectValue placeholder="All" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
@@ -124,7 +125,7 @@ export default function Borrowers() {
 
       <Card className="border-slate-200">
         {isLoading ? (
-          <CardContent className="p-6 space-y-3">
+          <CardContent className="p-4 space-y-3">
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
           </CardContent>
         ) : !borrowers || borrowers.length === 0 ? (
@@ -135,16 +136,16 @@ export default function Borrowers() {
           </CardContent>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Borrower</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Principal</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rate</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Base / Commission</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Monthly Interest</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
+                  <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Borrower</th>
+                  <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Principal</th>
+                  <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rate</th>
+                  <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Base / Commission</th>
+                  <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Monthly</th>
+                  <th className="px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
+                  <th className="px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -152,21 +153,21 @@ export default function Borrowers() {
                   const monthlyInterest = (b.principalAmount * b.interestRate) / 100;
                   return (
                     <tr key={b.id} className="hover:bg-slate-50 transition-colors" data-testid={`row-borrower-${b.id}`}>
-                      <td className="px-6 py-4">
+                      <td className="px-4 md:px-6 py-3 md:py-4">
                         <p className="font-medium text-slate-900">{b.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{b.address}</p>
-                        {b.phone && <p className="text-xs text-slate-400">{b.phone}</p>}
+                        <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">{b.address}</p>
+                        <span className="sm:hidden">{statusBadge(b.status)}</span>
                       </td>
-                      <td className="px-6 py-4 text-right font-semibold text-slate-900">{formatCurrency(b.principalAmount)}</td>
-                      <td className="px-6 py-4 text-right font-medium text-slate-700">{b.interestRate}%</td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-right font-semibold text-slate-900 whitespace-nowrap">{formatCurrency(b.principalAmount)}</td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-right font-medium text-slate-700 whitespace-nowrap">{b.interestRate}%</td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-right hidden md:table-cell">
                         <p className="text-slate-600 text-xs">{b.baseInterestRate}% base</p>
-                        <p className="text-emerald-600 text-xs font-medium">{b.commissionRate}% commission</p>
+                        <p className="text-emerald-600 text-xs font-medium">{b.commissionRate}% comm.</p>
                       </td>
-                      <td className="px-6 py-4 text-right font-medium text-slate-900">{formatCurrency(monthlyInterest)}</td>
-                      <td className="px-6 py-4">{statusBadge(b.status)}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-right font-medium text-slate-900 whitespace-nowrap">{formatCurrency(monthlyInterest)}</td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 hidden sm:table-cell">{statusBadge(b.status)}</td>
+                      <td className="px-4 md:px-6 py-3 md:py-4">
+                        <div className="flex items-center gap-1">
                           <Link href={`/borrowers/${b.id}`}>
                             <button className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-900" data-testid={`button-view-borrower-${b.id}`}>
                               <Eye className="h-4 w-4" />
@@ -187,7 +188,7 @@ export default function Borrowers() {
       </Card>
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="max-w-lg" data-testid="dialog-add-borrower">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-add-borrower">
           <DialogHeader>
             <DialogTitle>Add New Borrower</DialogTitle>
           </DialogHeader>
@@ -231,7 +232,7 @@ export default function Borrowers() {
                 )} />
                 <FormField control={form.control} name="interestRate" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Interest Rate (%/month)</FormLabel>
+                    <FormLabel>Interest Rate (%/mo)</FormLabel>
                     <FormControl><Input type="number" step="0.5" placeholder="10" {...field} data-testid="input-borrower-rate" /></FormControl>
                     <FormMessage />
                     {form.watch("interestRate") > 10 && (
@@ -248,7 +249,7 @@ export default function Borrowers() {
                 )} />
                 <FormField control={form.control} name="tenure" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tenure (months, optional)</FormLabel>
+                    <FormLabel>Tenure (months)</FormLabel>
                     <FormControl><Input type="number" placeholder="12" {...field} value={field.value ?? ""} data-testid="input-borrower-tenure" /></FormControl>
                     <FormMessage />
                   </FormItem>
