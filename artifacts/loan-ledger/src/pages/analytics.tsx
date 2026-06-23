@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useGetMonthlyStats, useGetYearlyStats, getGetMonthlyStatsQueryKey, getGetYearlyStatsQueryKey } from "@workspace/api-client-react";
+import { useGetMonthlyStats, useGetYearlyStats, useGetDashboardStats, getGetMonthlyStatsQueryKey, getGetYearlyStatsQueryKey, getGetDashboardStatsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { Users, TrendingUp, Wallet, AlertCircle } from "lucide-react";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -19,6 +20,7 @@ export default function Analytics() {
   const monthlyParams = { year: selectedYear };
   const { data: monthlyStats, isLoading: monthlyLoading } = useGetMonthlyStats(monthlyParams, { query: { queryKey: getGetMonthlyStatsQueryKey(monthlyParams) } });
   const { data: yearlyStats, isLoading: yearlyLoading } = useGetYearlyStats(undefined, { query: { queryKey: getGetYearlyStatsQueryKey() } });
+  const { data: dashStats, isLoading: dashLoading } = useGetDashboardStats({ query: { queryKey: getGetDashboardStatsQueryKey() } });
 
   const monthlyData = (monthlyStats ?? []).map(s => ({
     name: MONTH_NAMES[s.month - 1],
@@ -43,7 +45,7 @@ export default function Analytics() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Analytics</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Interest and commission breakdown</p>
+          <p className="text-slate-500 text-sm mt-0.5">Portfolio overview and interest breakdown</p>
         </div>
         <Select value={String(selectedYear)} onValueChange={v => setSelectedYear(Number(v))}>
           <SelectTrigger className="w-28" data-testid="select-year">
@@ -53,6 +55,60 @@ export default function Analytics() {
             {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Portfolio summary — always visible, even before any payments are recorded */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {dashLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
+        ) : (
+          <>
+            <Card className="border-slate-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                  <Users className="h-5 w-5 text-slate-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Active Borrowers</p>
+                  <p className="text-lg font-bold text-slate-900">{dashStats?.activeBorrowers ?? 0}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-slate-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <Wallet className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Principal Out</p>
+                  <p className="text-lg font-bold text-slate-900">{formatCurrency(dashStats?.totalPrincipal ?? 0)}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-slate-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Total Collected</p>
+                  <p className="text-lg font-bold text-emerald-700">{formatCurrency(dashStats?.totalInterestEarned ?? 0)}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-slate-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Pending</p>
+                  <p className="text-lg font-bold text-amber-700">{dashStats?.pendingPaymentsCount ?? 0} payments</p>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {monthlyLoading ? (

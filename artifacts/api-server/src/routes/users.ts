@@ -4,6 +4,8 @@ import { db, usersTable } from "@workspace/db";
 import { getAuth, clerkClient } from "@clerk/express";
 import {
   GetMeResponse,
+  UpdateMeBody,
+  UpdateMeResponse,
   ListUsersResponseItem,
   CreateUserBody,
   GetUserParams,
@@ -19,6 +21,20 @@ const router: IRouter = Router();
 router.get("/users/me", requireUser, async (req, res): Promise<void> => {
   const user = (req as any).appUser;
   res.json(GetMeResponse.parse(user));
+});
+
+router.patch("/users/me", requireAdmin, async (req, res): Promise<void> => {
+  const user = (req as any).appUser;
+  const parsed = UpdateMeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [updated] = await db.update(usersTable)
+    .set({ ...parsed.data, updatedAt: new Date() })
+    .where(eq(usersTable.id, user.id))
+    .returning();
+  res.json(UpdateMeResponse.parse(updated));
 });
 
 router.get("/users", requireAdmin, async (req, res): Promise<void> => {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
 import { useClerk } from "@clerk/react";
-import { Landmark, LayoutDashboard, Users, BarChart3, LogOut, ShieldAlert, Menu, X } from "lucide-react";
+import { Landmark, LayoutDashboard, Users, BarChart3, LogOut, ShieldAlert, Menu, X, Settings } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Layout({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) {
@@ -122,6 +122,18 @@ export default function Layout({ children, adminOnly = false }: { children: Reac
       </div>
 
       <div className="p-4 border-t border-slate-800 flex-shrink-0">
+        {isAdmin && (
+          <Link
+            href="/profile"
+            onClick={() => setSidebarOpen(false)}
+            className={`flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors mb-1 ${
+              location === "/profile" ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            }`}
+          >
+            <Settings className="mr-3 h-5 w-5 flex-shrink-0" />
+            Settings
+          </Link>
+        )}
         <button
           onClick={() => signOut({ redirectUrl: import.meta.env.BASE_URL.replace(/\/$/, "") || "/" })}
           className="w-full flex items-center px-2 py-2 text-sm font-medium rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"

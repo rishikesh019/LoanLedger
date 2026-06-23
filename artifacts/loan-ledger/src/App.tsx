@@ -13,6 +13,7 @@ import Dashboard from "@/pages/dashboard";
 import Borrowers from "@/pages/borrowers";
 import BorrowerDetail from "@/pages/borrower-detail";
 import Analytics from "@/pages/analytics";
+import Profile from "@/pages/profile";
 
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
@@ -208,6 +209,11 @@ function ClerkProviderWithRoutes() {
           </Route>
           <Route path="/admin/borrowers">
             {() => <AdminOrRedirect component={AdminBorrowers} />}
+          </Route>
+
+          {/* Admin settings */}
+          <Route path="/profile">
+            {() => <AdminOrRedirect component={Profile} />}
           </Route>
 
           {/* User + admin routes */}
