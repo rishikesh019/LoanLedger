@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 import {
   GetMeResponse,
   UpdateMeBody,
@@ -17,6 +17,19 @@ import {
 import { requireUser, requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+async function sendClerkInvitation(email: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const client = await clerkClient();
+    await client.invitations.createInvitation({
+      emailAddress: email,
+      ignoreExisting: true,
+    } as any);
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: String(err?.message ?? err) };
+  }
+}
 
 router.get("/users/me", requireUser, async (req, res): Promise<void> => {
   const user = (req as any).appUser;
@@ -48,6 +61,7 @@ router.post("/users", requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
   const [user] = await db.insert(usersTable).values({
     clerkId: `manual_${Date.now()}`,
     email: parsed.data.email,
@@ -56,7 +70,34 @@ router.post("/users", requireAdmin, async (req, res): Promise<void> => {
     role: parsed.data.role,
     isActive: true,
   }).returning();
+
+  // Auto-send Clerk invitation so the user can sign in immediately
+  const invite = await sendClerkInvitation(parsed.data.email);
+  if (!invite.ok) {
+    req.log?.warn({ email: parsed.data.email, err: invite.error }, "Clerk invitation failed (user still created)");
+  }
+
   res.status(201).json(GetUserResponse.parse(user));
+});
+
+// Resend (or send first-time) invitation for an existing local user
+router.post("/users/:id/invite", requireAdmin, async (req, res): Promise<void> => {
+  const params = GetUserParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, params.data.id));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  const invite = await sendClerkInvitation(user.email);
+  if (!invite.ok) {
+    res.status(500).json({ error: `Failed to send invitation: ${invite.error}` });
+    return;
+  }
+  res.json({ ok: true, message: `Invitation sent to ${user.email}` });
 });
 
 router.get("/users/:id", requireAdmin, async (req, res): Promise<void> => {
