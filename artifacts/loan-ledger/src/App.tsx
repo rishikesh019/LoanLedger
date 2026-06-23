@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, Show, useClerk } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, Redirect, useLocation, Router as WouterRouter } from "wouter";
@@ -13,13 +13,13 @@ import Dashboard from "@/pages/dashboard";
 import Borrowers from "@/pages/borrowers";
 import BorrowerDetail from "@/pages/borrower-detail";
 import Analytics from "@/pages/analytics";
-import Profile from "@/pages/profile";
 
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
 import AdminBorrowers from "@/pages/admin/borrowers";
 
 import Layout from "@/components/layout";
+import { useGetMe } from "@workspace/api-client-react";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +71,8 @@ const clerkAppearance = {
     formFieldLabel: "text-sm font-medium text-slate-900",
     footerActionLink: "text-sm font-medium text-emerald-600 hover:text-emerald-700",
     footerActionText: "text-sm text-slate-500",
+    // Hide the "Don't have an account? Sign up" footer on the sign-in page
+    footerAction__signIn: "hidden",
     dividerText: "text-xs text-slate-500",
     identityPreviewEditButton: "text-emerald-600 hover:text-emerald-700",
     formFieldSuccessText: "text-sm text-emerald-600",
@@ -92,24 +94,25 @@ const clerkAppearance = {
 function SignInPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+      {/* No signUpUrl — removes the "Don't have an account?" link */}
+      <SignIn routing="path" path={`${basePath}/sign-in`} />
     </div>
   );
 }
 
-function SignUpPage() {
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
-    </div>
-  );
+/** After sign-in, redirect based on role: admins → /admin/dashboard, users → /borrowers */
+function RoleBasedRedirect() {
+  const { data: user, isLoading } = useGetMe();
+  if (isLoading) return null;
+  if (user?.role === "admin") return <Redirect to="/admin/dashboard" />;
+  return <Redirect to="/borrowers" />;
 }
 
 function HomeRedirect() {
   return (
     <>
       <Show when="signed-in">
-        <Redirect to="/dashboard" />
+        <RoleBasedRedirect />
       </Show>
       <Show when="signed-out">
         <LandingPage />
@@ -123,6 +126,22 @@ function ProtectedRoute({ component: Component, adminOnly = false }: { component
     <>
       <Show when="signed-in">
         <Layout adminOnly={adminOnly}>
+          <Component />
+        </Layout>
+      </Show>
+      <Show when="signed-out">
+        <Redirect to="/" />
+      </Show>
+    </>
+  );
+}
+
+/** Redirect non-admin users away from admin-or-legacy pages */
+function AdminOrRedirect({ component: Component }: { component: any }) {
+  return (
+    <>
+      <Show when="signed-in">
+        <Layout adminOnly={true}>
           <Component />
         </Layout>
       </Show>
@@ -164,7 +183,6 @@ function ClerkProviderWithRoutes() {
       proxyUrl={clerkProxyUrl}
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
-      signUpUrl={`${basePath}/sign-up`}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
@@ -173,11 +191,26 @@ function ClerkProviderWithRoutes() {
         <Switch>
           <Route path="/" component={HomeRedirect} />
           <Route path="/sign-in/*?" component={SignInPage} />
-          <Route path="/sign-up/*?" component={SignUpPage} />
-          
-          <Route path="/dashboard">
-            {() => <ProtectedRoute component={Dashboard} />}
+          {/* Sign-up disabled — admin creates all accounts */}
+          <Route path="/sign-up/*?">
+            {() => <Redirect to="/sign-in" />}
           </Route>
+
+          {/* Admin-only routes */}
+          <Route path="/dashboard">
+            {() => <AdminOrRedirect component={Dashboard} />}
+          </Route>
+          <Route path="/admin/dashboard">
+            {() => <AdminOrRedirect component={AdminDashboard} />}
+          </Route>
+          <Route path="/admin/users">
+            {() => <AdminOrRedirect component={AdminUsers} />}
+          </Route>
+          <Route path="/admin/borrowers">
+            {() => <AdminOrRedirect component={AdminBorrowers} />}
+          </Route>
+
+          {/* User + admin routes */}
           <Route path="/borrowers">
             {() => <ProtectedRoute component={Borrowers} />}
           </Route>
@@ -186,19 +219,6 @@ function ClerkProviderWithRoutes() {
           </Route>
           <Route path="/analytics">
             {() => <ProtectedRoute component={Analytics} />}
-          </Route>
-          <Route path="/profile">
-            {() => <ProtectedRoute component={Profile} />}
-          </Route>
-
-          <Route path="/admin/dashboard">
-            {() => <ProtectedRoute component={AdminDashboard} adminOnly={true} />}
-          </Route>
-          <Route path="/admin/users">
-            {() => <ProtectedRoute component={AdminUsers} adminOnly={true} />}
-          </Route>
-          <Route path="/admin/borrowers">
-            {() => <ProtectedRoute component={AdminBorrowers} adminOnly={true} />}
           </Route>
 
           <Route component={NotFound} />
