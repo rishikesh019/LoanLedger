@@ -606,7 +606,7 @@ components:
     # ── Payment ────────────────────────────────────────────────────────────────
     Payment:
       type: object
-      required: [id, borrowerId, month, year, principalAmount, interestRate, baseInterestRate, commissionRate, interestAmount, baseInterestAmount, commissionAmount, isPaid, createdAt]
+      required: [id, borrowerId, month, year, principalAmount, interestRate, baseInterestRate, commissionRate, interestAmount, baseInterestAmount, commissionAmount, principalReduction, isPaid, createdAt]
       properties:
         id:
           type: integer
@@ -620,6 +620,7 @@ components:
           type: integer
         principalAmount:
           type: number
+          description: Outstanding principal at the time of this payment
         interestRate:
           type: number
         baseInterestRate:
@@ -628,13 +629,23 @@ components:
           type: number
         interestAmount:
           type: number
-          description: Total interest amount (principalAmount * interestRate / 100)
+          description: Interest amount due (outstandingPrincipal * interestRate / 100)
         baseInterestAmount:
           type: number
-          description: Base interest portion (principalAmount * 10 / 100)
+          description: Base interest portion (outstandingPrincipal * 10 / 100)
         commissionAmount:
           type: number
-          description: Commission portion (principalAmount * commissionRate / 100)
+          description: Commission portion (outstandingPrincipal * commissionRate / 100)
+        amountPaid:
+          type: ["number", "null"]
+          description: Actual amount paid by borrower (may exceed interest, surplus reduces principal)
+        principalReduction:
+          type: number
+          description: Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount)
+          default: 0
+        outstandingPrincipal:
+          type: ["number", "null"]
+          description: Remaining outstanding principal after this payment
         isPaid:
           type: boolean
         paidDate:
@@ -656,6 +667,9 @@ components:
           maximum: 12
         year:
           type: integer
+        amountPaid:
+          type: number
+          description: Actual amount paid. If > monthly interest, surplus reduces principal.
         isPaid:
           type: boolean
         paidDate:

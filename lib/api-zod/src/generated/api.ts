@@ -275,20 +275,23 @@ export const ListPaymentsParams = zod.object({
 
 export const listPaymentsResponseMonthMax = 12;
 
-
+export const listPaymentsResponsePrincipalReductionDefault = 0;
 
 export const ListPaymentsResponseItem = zod.object({
   "id": zod.number(),
   "borrowerId": zod.number(),
   "month": zod.number().min(1).max(listPaymentsResponseMonthMax),
   "year": zod.number(),
-  "principalAmount": zod.number(),
+  "principalAmount": zod.number().describe('Outstanding principal at the time of this payment'),
   "interestRate": zod.number(),
   "baseInterestRate": zod.number(),
   "commissionRate": zod.number(),
-  "interestAmount": zod.number().describe('Total interest amount (principalAmount \* interestRate \/ 100)'),
-  "baseInterestAmount": zod.number().describe('Base interest portion (principalAmount \* 10 \/ 100)'),
-  "commissionAmount": zod.number().describe('Commission portion (principalAmount \* commissionRate \/ 100)'),
+  "interestAmount": zod.number().describe('Interest amount due (outstandingPrincipal \* interestRate \/ 100)'),
+  "baseInterestAmount": zod.number().describe('Base interest portion (outstandingPrincipal \* 10 \/ 100)'),
+  "commissionAmount": zod.number().describe('Commission portion (outstandingPrincipal \* commissionRate \/ 100)'),
+  "amountPaid": zod.number().nullish().describe('Actual amount paid by borrower (may exceed interest, surplus reduces principal)'),
+  "principalReduction": zod.number().default(listPaymentsResponsePrincipalReductionDefault).describe('Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount)'),
+  "outstandingPrincipal": zod.number().nullish().describe('Remaining outstanding principal after this payment'),
   "isPaid": zod.boolean(),
   "paidDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
@@ -311,6 +314,7 @@ export const createPaymentBodyMonthMax = 12;
 export const CreatePaymentBody = zod.object({
   "month": zod.number().min(1).max(createPaymentBodyMonthMax),
   "year": zod.number(),
+  "amountPaid": zod.number().optional().describe('Actual amount paid. If > monthly interest, surplus reduces principal.'),
   "isPaid": zod.boolean().optional(),
   "paidDate": zod.coerce.date().optional(),
   "notes": zod.string().optional()
@@ -333,20 +337,23 @@ export const UpdatePaymentBody = zod.object({
 
 export const updatePaymentResponseMonthMax = 12;
 
-
+export const updatePaymentResponsePrincipalReductionDefault = 0;
 
 export const UpdatePaymentResponse = zod.object({
   "id": zod.number(),
   "borrowerId": zod.number(),
   "month": zod.number().min(1).max(updatePaymentResponseMonthMax),
   "year": zod.number(),
-  "principalAmount": zod.number(),
+  "principalAmount": zod.number().describe('Outstanding principal at the time of this payment'),
   "interestRate": zod.number(),
   "baseInterestRate": zod.number(),
   "commissionRate": zod.number(),
-  "interestAmount": zod.number().describe('Total interest amount (principalAmount \* interestRate \/ 100)'),
-  "baseInterestAmount": zod.number().describe('Base interest portion (principalAmount \* 10 \/ 100)'),
-  "commissionAmount": zod.number().describe('Commission portion (principalAmount \* commissionRate \/ 100)'),
+  "interestAmount": zod.number().describe('Interest amount due (outstandingPrincipal \* interestRate \/ 100)'),
+  "baseInterestAmount": zod.number().describe('Base interest portion (outstandingPrincipal \* 10 \/ 100)'),
+  "commissionAmount": zod.number().describe('Commission portion (outstandingPrincipal \* commissionRate \/ 100)'),
+  "amountPaid": zod.number().nullish().describe('Actual amount paid by borrower (may exceed interest, surplus reduces principal)'),
+  "principalReduction": zod.number().default(updatePaymentResponsePrincipalReductionDefault).describe('Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount)'),
+  "outstandingPrincipal": zod.number().nullish().describe('Remaining outstanding principal after this payment'),
   "isPaid": zod.boolean(),
   "paidDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),

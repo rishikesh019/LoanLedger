@@ -13,6 +13,8 @@ export interface PaymentInput {
      */
   month: number;
   year: number;
+  /** Actual amount paid. If > monthly interest, surplus reduces principal. */
+  amountPaid?: number;
   isPaid?: boolean;
   paidDate?: Date;
   notes?: string;

@@ -161,16 +161,29 @@ export interface Payment {
      */
   month: number;
   year: number;
+  /** Outstanding principal at the time of this payment */
   principalAmount: number;
   interestRate: number;
   baseInterestRate: number;
   commissionRate: number;
-  /** Total interest amount (principalAmount * interestRate / 100) */
+  /** Interest amount due (outstandingPrincipal * interestRate / 100) */
   interestAmount: number;
-  /** Base interest portion (principalAmount * 10 / 100) */
+  /** Base interest portion (outstandingPrincipal * 10 / 100) */
   baseInterestAmount: number;
-  /** Commission portion (principalAmount * commissionRate / 100) */
+  /** Commission portion (outstandingPrincipal * commissionRate / 100) */
   commissionAmount: number;
+  /**
+     * Actual amount paid by borrower (may exceed interest, surplus reduces principal)
+     * @nullable
+     */
+  amountPaid?: number | null;
+  /** Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount) */
+  principalReduction: number;
+  /**
+     * Remaining outstanding principal after this payment
+     * @nullable
+     */
+  outstandingPrincipal?: number | null;
   isPaid: boolean;
   /** @nullable */
   paidDate?: string | null;
@@ -186,6 +199,8 @@ export interface PaymentInput {
      */
   month: number;
   year: number;
+  /** Actual amount paid. If > monthly interest, surplus reduces principal. */
+  amountPaid?: number;
   isPaid?: boolean;
   paidDate?: string;
   notes?: string;
