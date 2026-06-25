@@ -41,11 +41,19 @@ async function enrichBorrower(rawBorrower: any) {
   const now = new Date();
   const start = new Date(b.startDate);
   const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+
+  // Count unpaid payments whose period is already in the past
+  const currentYearMonth = now.getFullYear() * 12 + now.getMonth(); // currentMonth is 0-indexed here
+  const overdueCount = payments.filter(p =>
+    !p.isPaid && (p.year * 12 + (p.month - 1) < currentYearMonth)
+  ).length;
+
   return {
     ...b,
     totalInterestEarned: round2(totalInterestEarned),
     totalCommissionEarned: round2(totalCommissionEarned),
     monthsElapsed: Math.max(0, monthsElapsed),
+    overdueCount,
   };
 }
 

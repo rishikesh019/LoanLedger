@@ -43,6 +43,8 @@ export interface Borrower {
   totalCommissionEarned?: number | null;
   /** @nullable */
   monthsElapsed?: number | null;
+  /** Number of unpaid payments for past months */
+  overdueCount: number;
   createdAt: Date;
   updatedAt?: Date;
 }

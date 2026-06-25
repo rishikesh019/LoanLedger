@@ -421,6 +421,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminDashboard"
 
+  # ─── COLLECTIONS ──────────────────────────────────────────────────────────
+  /collections/current-month:
+    get:
+      operationId: getCurrentMonthCollections
+      tags: [analytics]
+      summary: Current month payment collection status per borrower
+      responses:
+        "200":
+          description: Collection items for current month
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CollectionItem"
+
 # ─── COMPONENTS ──────────────────────────────────────────────────────────────
 components:
   schemas:
@@ -496,7 +512,7 @@ components:
     # ── Borrower ───────────────────────────────────────────────────────────────
     Borrower:
       type: object
-      required: [id, userId, name, address, principalAmount, interestRate, baseInterestRate, commissionRate, startDate, status, createdAt]
+      required: [id, userId, name, address, principalAmount, interestRate, baseInterestRate, commissionRate, startDate, status, overdueCount, createdAt]
       properties:
         id:
           type: integer
@@ -544,6 +560,9 @@ components:
           type: ["number", "null"]
         monthsElapsed:
           type: ["integer", "null"]
+        overdueCount:
+          type: integer
+          description: Number of unpaid payments for past months
         createdAt:
           type: string
           format: date-time
@@ -592,6 +611,9 @@ components:
           type: string
         email:
           type: string
+        interestRate:
+          type: number
+          description: Total monthly interest % (recalculates commission automatically)
         tenure:
           type: integer
         endDate:
@@ -808,3 +830,34 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/UserStats"
+
+    # ── Collections ────────────────────────────────────────────────────────────
+    CollectionItem:
+      type: object
+      required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, interestRate, interestDue, overdueCount, hasPaymentRecord, isPaid]
+      properties:
+        borrowerId:
+          type: integer
+        borrowerName:
+          type: string
+        phone:
+          type: ["string", "null"]
+        principalAmount:
+          type: number
+        outstandingPrincipal:
+          type: number
+        interestRate:
+          type: number
+        interestDue:
+          type: number
+          description: Expected interest for current month based on outstanding principal
+        overdueCount:
+          type: integer
+        hasPaymentRecord:
+          type: boolean
+        paymentId:
+          type: ["integer", "null"]
+        isPaid:
+          type: boolean
+        amountPaid:
+          type: ["number", "null"]

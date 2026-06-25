@@ -110,6 +110,8 @@ export interface Borrower {
   totalCommissionEarned?: number | null;
   /** @nullable */
   monthsElapsed?: number | null;
+  /** Number of unpaid payments for past months */
+  overdueCount: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -146,6 +148,8 @@ export interface BorrowerUpdate {
   address?: string;
   phone?: string;
   email?: string;
+  /** Total monthly interest % (recalculates commission automatically) */
+  interestRate?: number;
   tenure?: number;
   endDate?: string;
   status?: BorrowerUpdateStatus;
@@ -271,6 +275,25 @@ export interface AdminDashboard {
   totalCommissionEarned: number;
   monthlyTrend: MonthlyStats[];
   topPerformers: UserStats[];
+}
+
+export interface CollectionItem {
+  borrowerId: number;
+  borrowerName: string;
+  /** @nullable */
+  phone?: string | null;
+  principalAmount: number;
+  outstandingPrincipal: number;
+  interestRate: number;
+  /** Expected interest for current month based on outstanding principal */
+  interestDue: number;
+  overdueCount: number;
+  hasPaymentRecord: boolean;
+  /** @nullable */
+  paymentId?: number | null;
+  isPaid: boolean;
+  /** @nullable */
+  amountPaid?: number | null;
 }
 
 export type ListBorrowersParams = {

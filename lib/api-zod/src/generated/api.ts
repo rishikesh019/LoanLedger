@@ -156,6 +156,7 @@ export const ListBorrowersResponseItem = zod.object({
   "totalInterestEarned": zod.number().nullish(),
   "totalCommissionEarned": zod.number().nullish(),
   "monthsElapsed": zod.number().nullish(),
+  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -210,6 +211,7 @@ export const GetBorrowerResponse = zod.object({
   "totalInterestEarned": zod.number().nullish(),
   "totalCommissionEarned": zod.number().nullish(),
   "monthsElapsed": zod.number().nullish(),
+  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -227,6 +229,7 @@ export const UpdateBorrowerBody = zod.object({
   "address": zod.string().optional(),
   "phone": zod.string().optional(),
   "email": zod.string().optional(),
+  "interestRate": zod.number().optional().describe('Total monthly interest % (recalculates commission automatically)'),
   "tenure": zod.number().optional(),
   "endDate": zod.coerce.date().optional(),
   "status": zod.enum(['active', 'closed', 'defaulted']).optional(),
@@ -253,6 +256,7 @@ export const UpdateBorrowerResponse = zod.object({
   "totalInterestEarned": zod.number().nullish(),
   "totalCommissionEarned": zod.number().nullish(),
   "monthsElapsed": zod.number().nullish(),
+  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -479,5 +483,25 @@ export const GetAdminDashboardResponse = zod.object({
   "totalCommission": zod.number()
 }))
 })
+
+
+/**
+ * @summary Current month payment collection status per borrower
+ */
+export const GetCurrentMonthCollectionsResponseItem = zod.object({
+  "borrowerId": zod.number(),
+  "borrowerName": zod.string(),
+  "phone": zod.string().nullish(),
+  "principalAmount": zod.number(),
+  "outstandingPrincipal": zod.number(),
+  "interestRate": zod.number(),
+  "interestDue": zod.number().describe('Expected interest for current month based on outstanding principal'),
+  "overdueCount": zod.number(),
+  "hasPaymentRecord": zod.boolean(),
+  "paymentId": zod.number().nullish(),
+  "isPaid": zod.boolean(),
+  "amountPaid": zod.number().nullish()
+})
+export const GetCurrentMonthCollectionsResponse = zod.array(GetCurrentMonthCollectionsResponseItem)
 
 

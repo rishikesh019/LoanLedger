@@ -12,6 +12,7 @@ export * from './borrowerInput';
 export * from './borrowerStatus';
 export * from './borrowerUpdate';
 export * from './borrowerUpdateStatus';
+export * from './collectionItem';
 export * from './dashboardStats';
 export * from './getMonthlyStatsParams';
 export * from './getYearlyStatsParams';

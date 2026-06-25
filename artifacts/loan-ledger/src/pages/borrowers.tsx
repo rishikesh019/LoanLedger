@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useListBorrowers, useCreateBorrower, useDeleteBorrower, getListBorrowersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,7 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
-import { Search, Plus, IndianRupee, Trash2, Eye } from "lucide-react";
+import { Search, Plus, IndianRupee, Trash2, Eye, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const borrowerSchema = z.object({
@@ -36,7 +36,11 @@ function statusBadge(status: string) {
     closed: "bg-slate-100 text-slate-600 border-slate-200",
     defaulted: "bg-red-50 text-red-700 border-red-200",
   };
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${map[status] ?? "bg-slate-100 text-slate-600"}`}>{status}</span>;
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${map[status] ?? "bg-slate-100 text-slate-600"}`}>
+      {status}
+    </span>
+  );
 }
 
 function formatCurrency(amount: number) {
@@ -85,12 +89,21 @@ export default function Borrowers() {
     });
   };
 
+  const totalOverdue = (borrowers ?? []).reduce((s, b) => s + b.overdueCount, 0);
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5" data-testid="borrowers-page">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Borrowers</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{borrowers?.length ?? 0} total</p>
+          <p className="text-slate-500 text-sm mt-0.5">
+            {borrowers?.length ?? 0} total
+            {totalOverdue > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1 text-red-600 font-medium">
+                <AlertTriangle className="h-3.5 w-3.5" />{totalOverdue} overdue payment{totalOverdue !== 1 ? "s" : ""}
+              </span>
+            )}
+          </p>
         </div>
         <Button onClick={() => setShowAdd(true)} className="bg-slate-900 hover:bg-slate-800 flex-shrink-0" data-testid="button-add-borrower">
           <Plus className="h-4 w-4 mr-1 md:mr-2" />
@@ -142,8 +155,7 @@ export default function Borrowers() {
                   <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Borrower</th>
                   <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Principal</th>
                   <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rate</th>
-                  <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Base / Commission</th>
-                  <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Monthly</th>
+                  <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Monthly</th>
                   <th className="px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
                   <th className="px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                 </tr>
@@ -152,19 +164,28 @@ export default function Borrowers() {
                 {borrowers.map(b => {
                   const monthlyInterest = (b.principalAmount * b.interestRate) / 100;
                   return (
-                    <tr key={b.id} className="hover:bg-slate-50 transition-colors" data-testid={`row-borrower-${b.id}`}>
+                    <tr
+                      key={b.id}
+                      className={`hover:bg-slate-50 transition-colors ${b.overdueCount > 0 ? "bg-red-50/30" : ""}`}
+                      data-testid={`row-borrower-${b.id}`}
+                    >
                       <td className="px-4 md:px-6 py-3 md:py-4">
-                        <p className="font-medium text-slate-900">{b.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">{b.address}</p>
-                        <span className="sm:hidden">{statusBadge(b.status)}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div>
+                            <p className="font-medium text-slate-900">{b.name}</p>
+                            <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">{b.address}</p>
+                          </div>
+                          {b.overdueCount > 0 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
+                              <AlertTriangle className="h-3 w-3" />{b.overdueCount}
+                            </span>
+                          )}
+                          <span className="sm:hidden">{statusBadge(b.status)}</span>
+                        </div>
                       </td>
                       <td className="px-4 md:px-6 py-3 md:py-4 text-right font-semibold text-slate-900 whitespace-nowrap">{formatCurrency(b.principalAmount)}</td>
                       <td className="px-4 md:px-6 py-3 md:py-4 text-right font-medium text-slate-700 whitespace-nowrap">{b.interestRate}%</td>
-                      <td className="px-4 md:px-6 py-3 md:py-4 text-right hidden md:table-cell">
-                        <p className="text-slate-600 text-xs">{b.baseInterestRate}% base</p>
-                        <p className="text-emerald-600 text-xs font-medium">{b.commissionRate}% comm.</p>
-                      </td>
-                      <td className="px-4 md:px-6 py-3 md:py-4 text-right font-medium text-slate-900 whitespace-nowrap">{formatCurrency(monthlyInterest)}</td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-right font-medium text-slate-900 whitespace-nowrap hidden md:table-cell">{formatCurrency(monthlyInterest)}</td>
                       <td className="px-4 md:px-6 py-3 md:py-4 hidden sm:table-cell">{statusBadge(b.status)}</td>
                       <td className="px-4 md:px-6 py-3 md:py-4">
                         <div className="flex items-center gap-1">

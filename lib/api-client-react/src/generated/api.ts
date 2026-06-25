@@ -24,6 +24,7 @@ import type {
   Borrower,
   BorrowerInput,
   BorrowerUpdate,
+  CollectionItem,
   DashboardStats,
   GetMonthlyStatsParams,
   GetYearlyStatsParams,
@@ -1631,6 +1632,83 @@ export function useGetAdminDashboard<TData = Awaited<ReturnType<typeof getAdminD
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAdminDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetCurrentMonthCollectionsUrl = () => {
+
+
+
+
+  return `/api/collections/current-month`
+}
+
+/**
+ * @summary Current month payment collection status per borrower
+ */
+export const getCurrentMonthCollections = async ( options?: RequestInit): Promise<CollectionItem[]> => {
+
+  return customFetch<CollectionItem[]>(getGetCurrentMonthCollectionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCurrentMonthCollectionsQueryKey = () => {
+    return [
+    `/api/collections/current-month`
+    ] as const;
+    }
+
+
+export const getGetCurrentMonthCollectionsQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCurrentMonthCollectionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentMonthCollections>>> = ({ signal }) => getCurrentMonthCollections({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCurrentMonthCollectionsQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentMonthCollections>>>
+export type GetCurrentMonthCollectionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Current month payment collection status per borrower
+ */
+
+export function useGetCurrentMonthCollections<TData = Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCurrentMonthCollectionsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

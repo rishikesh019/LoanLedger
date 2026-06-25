@@ -12,6 +12,8 @@ export interface BorrowerUpdate {
   address?: string;
   phone?: string;
   email?: string;
+  /** Total monthly interest % (recalculates commission automatically) */
+  interestRate?: number;
   tenure?: number;
   endDate?: Date;
   status?: BorrowerUpdateStatus;
