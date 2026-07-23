@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useListBorrowers, useGetUserStats, getListBorrowersQueryKey, getGetUserStatsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "wouter";
-import { Search, Eye, IndianRupee } from "lucide-react";
+import { Search, Eye, IndianRupee, ChevronLeft, ChevronRight } from "lucide-react";
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -20,27 +20,39 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount);
 }
 
+const PAGE_SIZES = [20, 50, 100] as const;
+
 export default function AdminBorrowers() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [userFilter, setUserFilter] = useState<string | undefined>(undefined);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState<number>(50);
+
+  useEffect(() => { setPage(1); }, [statusFilter, search, userFilter, limit]);
 
   const { data: userStats } = useGetUserStats({ query: { queryKey: getGetUserStatsQueryKey() } });
 
-  const borrowerParams = { search: search || undefined, status: statusFilter as any };
+  const borrowerParams = { search: search || undefined, status: statusFilter as any, page, limit };
   const { data: borrowers, isLoading: borrowersLoading } = useListBorrowers(borrowerParams, {
     query: { queryKey: getListBorrowersQueryKey(borrowerParams) },
   });
+
+  const total = borrowers?.total ?? 0;
+  const totalPages = borrowers?.totalPages ?? 1;
 
   const filteredBorrowers = (borrowers?.data ?? []).filter(b =>
     !userFilter || String(b.userId) === userFilter
   );
 
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5" data-testid="admin-borrowers-page">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-slate-900">All Borrowers</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Admin view — all borrowers across all users</p>
+        <p className="text-slate-500 text-sm mt-0.5">{total} total — admin view across all users</p>
       </div>
 
       <div className="flex flex-wrap gap-2 md:gap-3">
@@ -139,6 +151,68 @@ export default function AdminBorrowers() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination footer */}
+          <div className="flex items-center justify-between px-4 md:px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-slate-500">
+                {total === 0 ? "No results" : `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total}`}
+              </p>
+              <Select value={String(limit)} onValueChange={v => setLimit(Number(v))}>
+                <SelectTrigger className="h-7 text-xs w-20 border-slate-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZES.map(s => (
+                    <SelectItem key={s} value={String(s)}>{s} / page</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(1)}
+                disabled={!canPrev}
+                className="h-7 w-7 rounded flex items-center justify-center text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:pointer-events-none text-xs font-medium"
+              >«</button>
+              <button
+                onClick={() => setPage(p => p - 1)}
+                disabled={!canPrev}
+                className="h-7 w-7 rounded flex items-center justify-center text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:pointer-events-none"
+              ><ChevronLeft className="h-4 w-4" /></button>
+
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let p: number;
+                if (totalPages <= 5) {
+                  p = i + 1;
+                } else if (page <= 3) {
+                  p = i + 1;
+                } else if (page >= totalPages - 2) {
+                  p = totalPages - 4 + i;
+                } else {
+                  p = page - 2 + i;
+                }
+                return (
+                  <button key={p} onClick={() => setPage(p)}
+                    className={`h-7 min-w-[28px] px-1.5 rounded text-xs font-medium transition-colors ${p === page ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-200"}`}>
+                    {p}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setPage(p => p + 1)}
+                disabled={!canNext}
+                className="h-7 w-7 rounded flex items-center justify-center text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:pointer-events-none"
+              ><ChevronRight className="h-4 w-4" /></button>
+              <button
+                onClick={() => setPage(totalPages)}
+                disabled={!canNext}
+                className="h-7 w-7 rounded flex items-center justify-center text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:pointer-events-none text-xs font-medium"
+              >»</button>
+            </div>
           </div>
         )}
       </Card>
