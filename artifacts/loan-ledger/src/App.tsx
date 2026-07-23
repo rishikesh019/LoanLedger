@@ -14,6 +14,7 @@ import Borrowers from "@/pages/borrowers";
 import BorrowerDetail from "@/pages/borrower-detail";
 import Analytics from "@/pages/analytics";
 import Profile from "@/pages/profile";
+import Collections from "@/pages/collections";
 
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
@@ -225,6 +226,9 @@ function ClerkProviderWithRoutes() {
           </Route>
           <Route path="/analytics">
             {() => <ProtectedRoute component={Analytics} />}
+          </Route>
+          <Route path="/collections">
+            {() => <ProtectedRoute component={Collections} />}
           </Route>
 
           <Route component={NotFound} />

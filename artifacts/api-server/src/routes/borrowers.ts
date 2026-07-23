@@ -67,9 +67,8 @@ router.get("/borrowers", requireUser, async (req, res): Promise<void> => {
   const { status, search } = queryParams.data;
 
   const conditions = [];
-  if (appUser.role !== "admin") {
-    conditions.push(eq(borrowersTable.userId, appUser.id));
-  }
+  // Always scope to the requesting user — borrowers are private per user, even for admins
+  conditions.push(eq(borrowersTable.userId, appUser.id));
   if (status) {
     conditions.push(eq(borrowersTable.status, status));
   }
@@ -171,7 +170,7 @@ router.get("/borrowers/:id", requireUser, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Borrower not found" });
     return;
   }
-  if (appUser.role !== "admin" && borrower.userId !== appUser.id) {
+  if (borrower.userId !== appUser.id) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -191,7 +190,7 @@ router.patch("/borrowers/:id", requireUser, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Borrower not found" });
     return;
   }
-  if (appUser.role !== "admin" && existing.userId !== appUser.id) {
+  if (existing.userId !== appUser.id) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -227,7 +226,7 @@ router.delete("/borrowers/:id", requireUser, async (req, res): Promise<void> => 
     res.status(404).json({ error: "Borrower not found" });
     return;
   }
-  if (appUser.role !== "admin" && existing.userId !== appUser.id) {
+  if (existing.userId !== appUser.id) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }

@@ -1,6 +1,10 @@
 import { useState, useMemo } from "react";
 import { useRoute } from "wouter";
-import { useGetBorrower, useListPayments, useCreatePayment, useUpdatePayment, useDeletePayment, getGetBorrowerQueryKey, getListPaymentsQueryKey } from "@workspace/api-client-react";
+import {
+  useGetBorrower, useListPayments, useCreatePayment, useUpdatePayment,
+  useDeletePayment, useUpdateBorrower,
+  getGetBorrowerQueryKey, getListPaymentsQueryKey, getListBorrowersQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +14,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Plus, CheckCircle, Circle, Trash2, Calendar, CalendarRange, TrendingDown, Info } from "lucide-react";
+import {
+  ArrowLeft, Plus, CheckCircle, Circle, Trash2, Calendar, CalendarRange,
+  TrendingDown, Info, Edit2, XCircle, Printer, AlertTriangle, Clock,
+} from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,6 +30,7 @@ function formatCurrency(amount: number) {
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const paymentSchema = z.object({
   month: z.coerce.number().min(1).max(12),
@@ -41,8 +50,21 @@ const bulkSchema = z.object({
   paidDate: z.string().optional(),
 });
 
+const editSchema = z.object({
+  name: z.string().min(1, "Name required"),
+  address: z.string().min(1, "Address required"),
+  phone: z.string().optional(),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  interestRate: z.coerce.number().min(0, "Must be non-negative"),
+  tenure: z.coerce.number().optional(),
+  endDate: z.string().optional(),
+  notes: z.string().optional(),
+  status: z.enum(["active", "closed", "defaulted"]),
+});
+
 type PaymentFormData = z.infer<typeof paymentSchema>;
 type BulkFormData = z.infer<typeof bulkSchema>;
+type EditFormData = z.infer<typeof editSchema>;
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -57,11 +79,123 @@ function statusBadge(status: string) {
   );
 }
 
+function printStatement(borrower: any, payments: any[]) {
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) { alert("Please allow popups to print the statement."); return; }
+  const paidPayments = payments.filter(p => p.isPaid);
+  const totalPaid = paidPayments.reduce((s, p) => s + p.interestAmount, 0);
+  const totalCommission = paidPayments.reduce((s, p) => s + p.commissionAmount, 0);
+  const totalPrincipalReduced = payments.reduce((s, p) => s + (p.principalReduction ?? 0), 0);
+  const fmt = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(n);
+
+  win.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Loan Statement — ${borrower.name}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1e293b; font-size: 14px; line-height: 1.5; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 24px; }
+  .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #0f172a; }
+  .brand-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .borrower-name { font-size: 20px; font-weight: 700; text-align: right; }
+  .borrower-info { font-size: 12px; color: #64748b; text-align: right; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; }
+  .card-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .card-value { font-size: 18px; font-weight: 700; }
+  .green { color: #059669; } .blue { color: #2563eb; }
+  h2 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }
+  tr:hover td { background: #f8fafc; }
+  .paid { color: #059669; font-weight: 600; }
+  .pending { color: #94a3b8; }
+  .overdue { color: #dc2626; font-weight: 600; }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
+  @media print { body { padding: 20px; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="brand">LoanLedger</div>
+    <div class="brand-sub">Loan Account Statement</div>
+    <div class="brand-sub" style="margin-top:8px">Generated: ${new Date().toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</div>
+  </div>
+  <div>
+    <div class="borrower-name">${borrower.name}</div>
+    <div class="borrower-info">${borrower.address}</div>
+    ${borrower.phone ? `<div class="borrower-info">📞 ${borrower.phone}</div>` : ""}
+    ${borrower.email ? `<div class="borrower-info">✉ ${borrower.email}</div>` : ""}
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card"><div class="card-label">Original Principal</div><div class="card-value">${fmt(borrower.principalAmount)}</div></div>
+  <div class="card"><div class="card-label">Interest Rate</div><div class="card-value">${borrower.interestRate}% / month</div></div>
+  <div class="card"><div class="card-label">Commission Rate</div><div class="card-value green">${borrower.commissionRate}% / month</div></div>
+  <div class="card"><div class="card-label">Loan Start</div><div class="card-value" style="font-size:15px">${borrower.startDate}</div></div>
+  <div class="card"><div class="card-label">Status</div><div class="card-value" style="font-size:15px;text-transform:capitalize">${borrower.status}</div></div>
+  ${totalPrincipalReduced > 0 ? `<div class="card"><div class="card-label">Principal Reduced</div><div class="card-value blue">-${fmt(totalPrincipalReduced)}</div></div>` : ""}
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;background:#ecfdf5;border-radius:8px;padding:16px;border:1px solid #a7f3d0">
+  <div><div class="card-label" style="color:#065f46">Total Collected</div><div style="font-size:18px;font-weight:700;color:#059669">${fmt(totalPaid)}</div></div>
+  <div><div class="card-label" style="color:#065f46">Commission Earned</div><div style="font-size:18px;font-weight:700;color:#059669">${fmt(totalCommission)}</div></div>
+  <div><div class="card-label" style="color:#065f46">Payments (Paid/Total)</div><div style="font-size:18px;font-weight:700;color:#059669">${paidPayments.length} / ${payments.length}</div></div>
+</div>
+
+<h2>Payment History</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Period</th>
+      <th>Outstanding</th>
+      <th>Interest Due</th>
+      <th>Amount Paid</th>
+      <th>Principal ↓</th>
+      <th>Commission</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${payments.map(p => {
+      const now = new Date();
+      const isOverdue = !p.isPaid && (p.year * 12 + (p.month - 1) < now.getFullYear() * 12 + now.getMonth());
+      return `<tr>
+        <td>${MONTHS_FULL[p.month - 1]} ${p.year}</td>
+        <td>${fmt(p.principalAmount)}</td>
+        <td>${fmt(p.interestAmount)}</td>
+        <td>${p.amountPaid != null ? fmt(p.amountPaid) : "—"}</td>
+        <td>${(p.principalReduction ?? 0) > 0 ? "−" + fmt(p.principalReduction) : "—"}</td>
+        <td>${fmt(p.commissionAmount)}</td>
+        <td class="${p.isPaid ? "paid" : isOverdue ? "overdue" : "pending"}">${p.isPaid ? "✓ Paid" + (p.paidDate ? " (" + p.paidDate + ")" : "") : isOverdue ? "⚠ Overdue" : "Pending"}</td>
+      </tr>`;
+    }).join("")}
+  </tbody>
+</table>
+
+<div class="footer">
+  <span>LoanLedger · Confidential</span>
+  <span>Statement as of ${new Date().toLocaleDateString("en-IN")}</span>
+</div>
+</body>
+</html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 600);
+}
+
 export default function BorrowerDetail() {
   const [, params] = useRoute("/borrowers/:id");
   const id = Number(params?.id);
+  const [activeTab, setActiveTab] = useState<"history" | "schedule">("history");
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showBulkPayment, setShowBulkPayment] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showCloseLoan, setShowCloseLoan] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -72,6 +206,7 @@ export default function BorrowerDetail() {
   const createPayment = useCreatePayment();
   const updatePayment = useUpdatePayment();
   const deletePayment = useDeletePayment();
+  const updateBorrower = useUpdateBorrower();
 
   const now = new Date();
   const form = useForm<PaymentFormData>({
@@ -84,7 +219,22 @@ export default function BorrowerDetail() {
     defaultValues: { fromMonth: now.getMonth() + 1, fromYear: now.getFullYear(), toMonth: now.getMonth() + 1, toYear: now.getFullYear(), isPaid: false },
   });
 
-  // Current outstanding principal — last payment that has outstandingPrincipal set, or original
+  const editForm = useForm<EditFormData>({
+    resolver: zodResolver(editSchema),
+    values: borrower ? {
+      name: borrower.name,
+      address: borrower.address,
+      phone: borrower.phone ?? "",
+      email: borrower.email ?? "",
+      interestRate: borrower.interestRate,
+      tenure: borrower.tenure ?? undefined,
+      endDate: borrower.endDate ?? "",
+      notes: borrower.notes ?? "",
+      status: borrower.status as "active" | "closed" | "defaulted",
+    } : undefined,
+  });
+
+  // Current outstanding principal
   const currentOutstanding = useMemo(() => {
     if (!payments || !borrower) return borrower ? borrower.principalAmount : 0;
     const sorted = [...payments].sort((a, b) => b.year * 12 + b.month - (a.year * 12 + a.month));
@@ -94,14 +244,50 @@ export default function BorrowerDetail() {
     return borrower.principalAmount;
   }, [payments, borrower]);
 
-  // Live split preview for the single payment dialog
+  // Repayment schedule
+  const schedule = useMemo(() => {
+    if (!borrower) return [];
+    const start = new Date(borrower.startDate);
+    const startCursor = start.getFullYear() * 12 + start.getMonth();
+
+    const nowCursor = now.getFullYear() * 12 + now.getMonth();
+    let endCursor = nowCursor;
+    if (borrower.tenure) endCursor = Math.max(endCursor, startCursor + borrower.tenure - 1);
+    if (borrower.endDate) {
+      const ed = new Date(borrower.endDate);
+      endCursor = Math.max(endCursor, ed.getFullYear() * 12 + ed.getMonth());
+    }
+
+    const paymentMap = new Map((payments ?? []).map(p => [`${p.year}-${p.month}`, p]));
+
+    let runningOutstanding = borrower.principalAmount;
+    return Array.from({ length: endCursor - startCursor + 1 }, (_, i) => {
+      const cursor = startCursor + i;
+      const year = Math.floor(cursor / 12);
+      const month = (cursor % 12) + 1;
+      const existing = paymentMap.get(`${year}-${month}`);
+      const isUpcoming = cursor > nowCursor;
+      const isOverdue = !isUpcoming && cursor < nowCursor && (!existing || !existing.isPaid);
+
+      const outstanding = existing?.outstandingPrincipal ?? runningOutstanding;
+      const interestDue = Math.round((outstanding * borrower.interestRate) / 100 * 100) / 100;
+      const commissionDue = Math.round((outstanding * borrower.commissionRate) / 100 * 100) / 100;
+
+      if (existing?.outstandingPrincipal != null) {
+        runningOutstanding = existing.outstandingPrincipal;
+      }
+
+      return { year, month, cursor, existing, outstanding, interestDue, commissionDue, isUpcoming, isOverdue };
+    });
+  }, [borrower, payments]);
+
+  // Payment dialog preview
   const amountPaidWatch = form.watch("amountPaid");
   const selectedMonth = form.watch("month");
   const selectedYear = form.watch("year");
 
   const splitPreview = useMemo(() => {
     if (!borrower) return null;
-    // For the selected month, find the outstanding before that month
     const outstandingForMonth = (() => {
       if (!payments) return currentOutstanding;
       const sorted = [...payments]
@@ -116,42 +302,21 @@ export default function BorrowerDetail() {
     const fullInterest = Math.round((outstandingForMonth * borrower.interestRate) / 100 * 100) / 100;
     const fullBase = Math.round((outstandingForMonth * borrower.baseInterestRate) / 100 * 100) / 100;
     const fullCommission = Math.round((outstandingForMonth * borrower.commissionRate) / 100 * 100) / 100;
-
     const paid = amountPaidWatch ? parseFloat(amountPaidWatch) : null;
 
     if (paid != null && !isNaN(paid) && paid > 0) {
       if (paid >= fullInterest) {
         const principalReduction = Math.round((paid - fullInterest) * 100) / 100;
-        return {
-          outstanding: outstandingForMonth,
-          fullInterest, fullBase, fullCommission,
-          amountPaid: paid,
-          interestPortion: fullInterest,
-          principalReduction,
-          newOutstanding: Math.round((outstandingForMonth - principalReduction) * 100) / 100,
-          isPartial: false,
-        };
+        return { outstanding: outstandingForMonth, fullInterest, fullBase, fullCommission, amountPaid: paid, interestPortion: fullInterest, principalReduction, newOutstanding: Math.round((outstandingForMonth - principalReduction) * 100) / 100, isPartial: false };
       } else {
-        // Partial payment
         const ratio = paid / fullInterest;
-        return {
-          outstanding: outstandingForMonth,
-          fullInterest, fullBase, fullCommission,
-          amountPaid: paid,
-          interestPortion: paid,
-          baseInterestPortion: Math.round(fullBase * ratio * 100) / 100,
-          commissionPortion: Math.round(fullCommission * ratio * 100) / 100,
-          principalReduction: 0,
-          newOutstanding: outstandingForMonth,
-          isPartial: true,
-          shortfall: Math.round((fullInterest - paid) * 100) / 100,
-        };
+        return { outstanding: outstandingForMonth, fullInterest, fullBase, fullCommission, amountPaid: paid, interestPortion: paid, baseInterestPortion: Math.round(fullBase * ratio * 100) / 100, commissionPortion: Math.round(fullCommission * ratio * 100) / 100, principalReduction: 0, newOutstanding: outstandingForMonth, isPartial: true, shortfall: Math.round((fullInterest - paid) * 100) / 100 };
       }
     }
     return { outstanding: outstandingForMonth, fullInterest, fullBase, fullCommission };
   }, [borrower, amountPaidWatch, selectedMonth, selectedYear, payments, currentOutstanding]);
 
-  // Bulk range preview
+  // Bulk preview
   const bulkFromMonth = bulkForm.watch("fromMonth");
   const bulkFromYear = bulkForm.watch("fromYear");
   const bulkToMonth = bulkForm.watch("toMonth");
@@ -166,8 +331,7 @@ export default function BorrowerDetail() {
     const existingSet = new Set(payments.map(p => `${p.year}-${p.month}`));
     let skipped = 0;
     for (let c = from; c <= to; c++) {
-      const y = Math.floor(c / 12);
-      const m = (c % 12) + 1;
+      const y = Math.floor(c / 12); const m = (c % 12) + 1;
       if (existingSet.has(`${y}-${m}`)) skipped++;
     }
     return { count: total - skipped, valid: true, skipped, total };
@@ -176,16 +340,7 @@ export default function BorrowerDetail() {
   const handleAddPayment = (data: PaymentFormData) => {
     const amountPaid = data.amountPaid && data.amountPaid.trim() !== "" ? Number(data.amountPaid) : undefined;
     createPayment.mutate(
-      {
-        borrowerId: id,
-        data: {
-          ...data,
-          paidDate: data.paidDate || undefined,
-          notes: data.notes || undefined,
-          // @ts-ignore — amountPaid is not in generated schema but handled by the API
-          amountPaid,
-        },
-      },
+      { borrowerId: id, data: { ...data, paidDate: data.paidDate || undefined, notes: data.notes || undefined, amountPaid } as any },
       {
         onSuccess: () => {
           toast({ title: "Payment recorded" });
@@ -206,21 +361,11 @@ export default function BorrowerDetail() {
       const res = await fetch(`/api/borrowers/${id}/payments/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          fromMonth: Number(data.fromMonth),
-          fromYear: Number(data.fromYear),
-          toMonth: Number(data.toMonth),
-          toYear: Number(data.toYear),
-          isPaid: data.isPaid,
-          paidDate: data.isPaid && data.paidDate ? data.paidDate : undefined,
-        }),
+        body: JSON.stringify({ fromMonth: Number(data.fromMonth), fromYear: Number(data.fromYear), toMonth: Number(data.toMonth), toYear: Number(data.toYear), isPaid: data.isPaid, paidDate: data.isPaid && data.paidDate ? data.paidDate : undefined }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Failed");
-      toast({
-        title: `${result.created} payment${result.created !== 1 ? "s" : ""} created`,
-        description: result.skipped > 0 ? `${result.skipped} month${result.skipped !== 1 ? "s" : ""} already existed and were skipped.` : undefined,
-      });
+      toast({ title: `${result.created} payment${result.created !== 1 ? "s" : ""} created`, description: result.skipped > 0 ? `${result.skipped} month(s) skipped (already existed).` : undefined });
       queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: getGetBorrowerQueryKey(id) });
       setShowBulkPayment(false);
@@ -232,15 +377,40 @@ export default function BorrowerDetail() {
     }
   };
 
+  const handleEditSubmit = (data: EditFormData) => {
+    updateBorrower.mutate(
+      { id, data: { ...data, phone: data.phone || undefined, email: data.email || undefined, endDate: data.endDate || undefined, notes: data.notes || undefined } },
+      {
+        onSuccess: () => {
+          toast({ title: "Borrower updated" });
+          queryClient.invalidateQueries({ queryKey: getGetBorrowerQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getListBorrowersQueryKey() });
+          setShowEdit(false);
+        },
+        onError: () => toast({ title: "Error", description: "Update failed.", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleCloseLoan = () => {
+    updateBorrower.mutate(
+      { id, data: { status: "closed", endDate: new Date().toISOString().split("T")[0] } },
+      {
+        onSuccess: () => {
+          toast({ title: "Loan closed", description: "This loan has been marked as closed." });
+          queryClient.invalidateQueries({ queryKey: getGetBorrowerQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getListBorrowersQueryKey() });
+          setShowCloseLoan(false);
+        },
+        onError: () => toast({ title: "Error", variant: "destructive" }),
+      }
+    );
+  };
+
   const togglePaid = (paymentId: number, current: boolean) => {
     updatePayment.mutate(
       { borrowerId: id, paymentId, data: { isPaid: !current, paidDate: !current ? new Date().toISOString().split("T")[0] : undefined } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(id) });
-          queryClient.invalidateQueries({ queryKey: getGetBorrowerQueryKey(id) });
-        },
-      }
+      { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(id) }); queryClient.invalidateQueries({ queryKey: getGetBorrowerQueryKey(id) }); } }
     );
   };
 
@@ -279,9 +449,11 @@ export default function BorrowerDetail() {
   const totalCommission = paidPayments.reduce((sum, p) => sum + p.commissionAmount, 0);
   const totalPrincipalReduced = (payments ?? []).reduce((sum, p) => sum + (p.principalReduction ?? 0), 0);
   const principalReduced = totalPrincipalReduced > 0;
+  const overdueCount = (payments ?? []).filter(p => !p.isPaid && (p.year * 12 + (p.month - 1) < now.getFullYear() * 12 + now.getMonth())).length;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5" data-testid="borrower-detail-page">
+      {/* Header */}
       <div className="flex items-start gap-3">
         <Link href="/borrowers">
           <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 flex-shrink-0 mt-0.5" data-testid="button-back">
@@ -292,8 +464,30 @@ export default function BorrowerDetail() {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 truncate">{borrower.name}</h1>
             {statusBadge(borrower.status)}
+            {overdueCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                <AlertTriangle className="h-3 w-3" />{overdueCount} overdue
+              </span>
+            )}
           </div>
           <p className="text-slate-500 text-sm truncate">{borrower.address}</p>
+        </div>
+        {/* Action buttons */}
+        <div className="flex gap-2 flex-shrink-0">
+          <Button size="sm" variant="outline" onClick={() => printStatement(borrower, payments ?? [])} title="Print Statement">
+            <Printer className="h-4 w-4 md:mr-1" />
+            <span className="hidden md:inline">Statement</span>
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setShowEdit(true)} data-testid="button-edit-borrower">
+            <Edit2 className="h-4 w-4 md:mr-1" />
+            <span className="hidden md:inline">Edit</span>
+          </Button>
+          {borrower.status === "active" && (
+            <Button size="sm" variant="outline" onClick={() => setShowCloseLoan(true)} className="text-red-600 border-red-200 hover:bg-red-50" data-testid="button-close-loan">
+              <XCircle className="h-4 w-4 md:mr-1" />
+              <span className="hidden md:inline">Close Loan</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -371,109 +565,293 @@ export default function BorrowerDetail() {
         </CardContent>
       </Card>
 
-      {/* Payments */}
+      {/* Payment History / Schedule Tabs */}
       <Card className="border-slate-200">
-        <CardHeader className="pb-3 px-4 md:px-6 flex-row items-center justify-between">
-          <CardTitle className="text-base font-semibold text-slate-900">Payment History</CardTitle>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => setShowBulkPayment(true)} data-testid="button-bulk-payment">
-              <CalendarRange className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Bulk Record</span>
-              <span className="sm:hidden">Bulk</span>
-            </Button>
-            <Button size="sm" onClick={() => setShowAddPayment(true)} className="bg-slate-900 hover:bg-slate-800" data-testid="button-add-payment">
-              <Plus className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Record Payment</span>
-              <span className="sm:hidden">Record</span>
-            </Button>
+        {/* Tab headers */}
+        <div className="border-b border-slate-100 px-4 md:px-6 pt-4 flex items-center justify-between gap-2">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`px-3 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors ${activeTab === "history" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+            >
+              Payment History
+            </button>
+            <button
+              onClick={() => setActiveTab("schedule")}
+              className={`px-3 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "schedule" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+            >
+              <Clock className="h-3.5 w-3.5" />Repayment Schedule
+            </button>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {paymentsLoading ? (
-            <div className="p-4 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
-          ) : !payments || payments.length === 0 ? (
-            <div className="py-10 text-center text-slate-400">
-              <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No payments recorded yet</p>
-              <p className="text-xs mt-1">Use "Record Payment" for a single month or "Bulk Record" for a date range.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[560px]">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Period</th>
-                    <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount Paid</th>
-                    <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Interest</th>
-                    <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Commission</th>
-                    <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Principal ↓</th>
-                    <th className="px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                    <th className="px-4 md:px-6 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {payments.map(p => (
-                    <tr key={p.id} className="hover:bg-slate-50" data-testid={`row-payment-${p.id}`}>
-                      <td className="px-4 md:px-6 py-3 font-medium text-slate-900 whitespace-nowrap">{MONTHS[p.month - 1]} {p.year}</td>
-                      <td className="px-4 md:px-6 py-3 text-right whitespace-nowrap">
-                        {p.amountPaid != null ? (
-                          <span className="text-slate-900 font-medium">{formatCurrency(p.amountPaid)}</span>
-                        ) : (
-                          <span className="text-slate-400 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 md:px-6 py-3 text-right text-slate-600 whitespace-nowrap hidden md:table-cell">{formatCurrency(p.interestAmount)}</td>
-                      <td className="px-4 md:px-6 py-3 text-right text-emerald-600 font-medium whitespace-nowrap">{formatCurrency(p.commissionAmount)}</td>
-                      <td className="px-4 md:px-6 py-3 text-right hidden lg:table-cell">
-                        {(p.principalReduction ?? 0) > 0 ? (
-                          <span className="text-blue-600 font-medium">−{formatCurrency(p.principalReduction!)}</span>
-                        ) : (
-                          <span className="text-slate-300 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 md:px-6 py-3">
-                        <button
-                          onClick={() => togglePaid(p.id, p.isPaid)}
-                          className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full transition-colors whitespace-nowrap ${p.isPaid ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
-                          data-testid={`button-toggle-payment-${p.id}`}
-                        >
-                          {p.isPaid ? <CheckCircle className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
-                          {p.isPaid ? "Paid" : "Pending"}
-                        </button>
-                      </td>
-                      <td className="px-4 md:px-6 py-3">
-                        <button onClick={() => handleDeletePayment(p.id)} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" data-testid={`button-delete-payment-${p.id}`}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {activeTab === "history" && (
+            <div className="flex gap-2 pb-2">
+              <Button size="sm" variant="outline" onClick={() => setShowBulkPayment(true)} data-testid="button-bulk-payment">
+                <CalendarRange className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Bulk Record</span>
+                <span className="sm:hidden">Bulk</span>
+              </Button>
+              <Button size="sm" onClick={() => setShowAddPayment(true)} className="bg-slate-900 hover:bg-slate-800" data-testid="button-add-payment">
+                <Plus className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Record Payment</span>
+                <span className="sm:hidden">Record</span>
+              </Button>
             </div>
           )}
-        </CardContent>
+        </div>
+
+        {/* Payment History Tab */}
+        {activeTab === "history" && (
+          <CardContent className="p-0">
+            {paymentsLoading ? (
+              <div className="p-4 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+            ) : !payments || payments.length === 0 ? (
+              <div className="py-10 text-center text-slate-400">
+                <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No payments recorded yet</p>
+                <p className="text-xs mt-1">Use "Record Payment" for a single month or "Bulk Record" for a date range.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[560px]">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50">
+                      <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Period</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount Paid</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Interest</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Commission</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Principal ↓</th>
+                      <th className="px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                      <th className="px-4 md:px-6 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {payments.map(p => {
+                      const isOverdue = !p.isPaid && (p.year * 12 + (p.month - 1) < now.getFullYear() * 12 + now.getMonth());
+                      return (
+                        <tr key={p.id} className={`hover:bg-slate-50 ${isOverdue ? "bg-red-50/40" : ""}`} data-testid={`row-payment-${p.id}`}>
+                          <td className="px-4 md:px-6 py-3 font-medium text-slate-900 whitespace-nowrap">
+                            {MONTHS[p.month - 1]} {p.year}
+                            {isOverdue && <span className="ml-1.5 text-red-500 text-xs">overdue</span>}
+                          </td>
+                          <td className="px-4 md:px-6 py-3 text-right whitespace-nowrap">
+                            {p.amountPaid != null ? <span className="text-slate-900 font-medium">{formatCurrency(p.amountPaid)}</span> : <span className="text-slate-400 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 md:px-6 py-3 text-right text-slate-600 whitespace-nowrap hidden md:table-cell">{formatCurrency(p.interestAmount)}</td>
+                          <td className="px-4 md:px-6 py-3 text-right text-emerald-600 font-medium whitespace-nowrap">{formatCurrency(p.commissionAmount)}</td>
+                          <td className="px-4 md:px-6 py-3 text-right hidden lg:table-cell">
+                            {(p.principalReduction ?? 0) > 0 ? <span className="text-blue-600 font-medium">−{formatCurrency(p.principalReduction!)}</span> : <span className="text-slate-300 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 md:px-6 py-3">
+                            <button
+                              onClick={() => togglePaid(p.id, p.isPaid)}
+                              className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full transition-colors whitespace-nowrap ${p.isPaid ? "bg-emerald-50 text-emerald-700" : isOverdue ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+                              data-testid={`button-toggle-payment-${p.id}`}
+                            >
+                              {p.isPaid ? <CheckCircle className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
+                              {p.isPaid ? "Paid" : isOverdue ? "Overdue" : "Pending"}
+                            </button>
+                          </td>
+                          <td className="px-4 md:px-6 py-3">
+                            <button onClick={() => handleDeletePayment(p.id)} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" data-testid={`button-delete-payment-${p.id}`}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        )}
+
+        {/* Repayment Schedule Tab */}
+        {activeTab === "schedule" && (
+          <CardContent className="p-0">
+            {schedule.length === 0 ? (
+              <div className="py-10 text-center text-slate-400">
+                <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No schedule to show yet.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[580px]">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50">
+                      <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
+                      <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Period</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Outstanding</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Interest Due</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Commission</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Principal ↓</th>
+                      <th className="px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {schedule.map((row, i) => (
+                      <tr key={`${row.year}-${row.month}`} className={`${row.isUpcoming ? "opacity-60" : ""} ${row.isOverdue ? "bg-red-50/40" : ""} hover:bg-slate-50`}>
+                        <td className="px-4 md:px-6 py-2.5 text-slate-400 text-xs">{i + 1}</td>
+                        <td className="px-4 md:px-6 py-2.5 font-medium text-slate-900 whitespace-nowrap">
+                          {MONTHS[row.month - 1]} {row.year}
+                          {row.isUpcoming && <span className="ml-1.5 text-xs text-slate-400 font-normal">(upcoming)</span>}
+                        </td>
+                        <td className="px-4 md:px-6 py-2.5 text-right text-slate-700 whitespace-nowrap">{formatCurrency(row.outstanding)}</td>
+                        <td className="px-4 md:px-6 py-2.5 text-right font-medium text-slate-900 whitespace-nowrap">{formatCurrency(row.interestDue)}</td>
+                        <td className="px-4 md:px-6 py-2.5 text-right text-emerald-600 whitespace-nowrap hidden md:table-cell">{formatCurrency(row.commissionDue)}</td>
+                        <td className="px-4 md:px-6 py-2.5 text-right hidden lg:table-cell">
+                          {row.existing && (row.existing.principalReduction ?? 0) > 0 ? (
+                            <span className="text-blue-600 font-medium">−{formatCurrency(row.existing.principalReduction!)}</span>
+                          ) : <span className="text-slate-300 text-xs">—</span>}
+                        </td>
+                        <td className="px-4 md:px-6 py-2.5">
+                          {row.isUpcoming ? (
+                            <span className="text-xs text-slate-400 flex items-center gap-1"><Clock className="h-3 w-3" />Upcoming</span>
+                          ) : row.existing?.isPaid ? (
+                            <span className="text-xs text-emerald-600 flex items-center gap-1 font-medium"><CheckCircle className="h-3 w-3" />Paid</span>
+                          ) : row.isOverdue ? (
+                            <span className="text-xs text-red-600 flex items-center gap-1 font-medium"><AlertTriangle className="h-3 w-3" />Overdue</span>
+                          ) : (
+                            <span className="text-xs text-amber-600 flex items-center gap-1"><Circle className="h-3 w-3" />Pending</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
-      {/* Single Payment Dialog */}
+      {/* ── Edit Borrower Dialog ── */}
+      <Dialog open={showEdit} onOpenChange={setShowEdit}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Borrower</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={editForm.control} name="name" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="address" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Address</FormLabel>
+                    <FormControl><Textarea rows={2} {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="phone" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="email" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="interestRate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Interest Rate (%/mo)</FormLabel>
+                    <FormControl><Input type="number" step="0.5" {...field} /></FormControl>
+                    {editForm.watch("interestRate") > 10 && (
+                      <p className="text-xs text-emerald-600">Commission: {(editForm.watch("interestRate") - 10).toFixed(1)}%</p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="status" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                        <SelectItem value="defaulted">Defaulted</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="tenure" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tenure (months)</FormLabel>
+                    <FormControl><Input type="number" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="endDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Date</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="notes" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl><Textarea rows={2} {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => setShowEdit(false)}>Cancel</Button>
+                <Button type="submit" disabled={updateBorrower.isPending} className="bg-slate-900 hover:bg-slate-800">
+                  {updateBorrower.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Close Loan Confirmation ── */}
+      <Dialog open={showCloseLoan} onOpenChange={setShowCloseLoan}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Close This Loan?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              This will mark the loan for <strong>{borrower.name}</strong> as <strong>closed</strong> and set today as the end date.
+              The payment history will be preserved and you can always reopen it by editing the borrower status.
+            </p>
+            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-sm text-amber-700">
+              {overdueCount > 0 ? `⚠ This borrower has ${overdueCount} overdue payment${overdueCount !== 1 ? "s" : ""}.` : "All payments are up to date."}
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowCloseLoan(false)}>Cancel</Button>
+              <Button onClick={handleCloseLoan} disabled={updateBorrower.isPending} className="bg-red-600 hover:bg-red-700 text-white">
+                {updateBorrower.isPending ? "Closing..." : "Close Loan"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Single Payment Dialog ── */}
       <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
         <DialogContent className="max-h-[90vh] overflow-y-auto" data-testid="dialog-add-payment">
-          <DialogHeader>
-            <DialogTitle>Record Monthly Payment</DialogTitle>
-          </DialogHeader>
-
-          {/* Current outstanding summary */}
+          <DialogHeader><DialogTitle>Record Monthly Payment</DialogTitle></DialogHeader>
           <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 text-sm">
-            <div className="flex items-center gap-1.5 text-blue-700 font-medium mb-1">
-              <Info className="h-3.5 w-3.5" />
-              Current Outstanding Principal
-            </div>
+            <div className="flex items-center gap-1.5 text-blue-700 font-medium mb-1"><Info className="h-3.5 w-3.5" />Current Outstanding Principal</div>
             <p className="text-blue-900 font-bold text-base">{formatCurrency(currentOutstanding)}</p>
-            {currentOutstanding !== borrower.principalAmount && (
-              <p className="text-blue-500 text-xs mt-0.5">Original: {formatCurrency(borrower.principalAmount)}</p>
-            )}
+            {currentOutstanding !== borrower.principalAmount && <p className="text-blue-500 text-xs mt-0.5">Original: {formatCurrency(borrower.principalAmount)}</p>}
           </div>
-
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleAddPayment)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -482,9 +860,7 @@ export default function BorrowerDetail() {
                     <FormLabel>Month</FormLabel>
                     <Select value={String(field.value)} onValueChange={v => field.onChange(Number(v))}>
                       <SelectTrigger data-testid="select-payment-month"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
-                      </SelectContent>
+                      <SelectContent>{MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
@@ -498,7 +874,6 @@ export default function BorrowerDetail() {
                 )} />
               </div>
 
-              {/* Interest breakdown for selected month */}
               {splitPreview && (
                 <div className="p-3 bg-slate-50 rounded-lg text-sm border border-slate-200">
                   <p className="text-xs text-slate-500 font-medium mb-2">Monthly breakdown on {formatCurrency(splitPreview.outstanding)}</p>
@@ -514,85 +889,60 @@ export default function BorrowerDetail() {
                 <FormItem>
                   <FormLabel>Amount Paid (optional)</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder={splitPreview ? `Interest due: ₹${splitPreview.fullInterest}` : "Enter amount"}
-                      {...field}
-                      data-testid="input-amount-paid"
-                    />
+                    <Input type="number" step="0.01" placeholder={splitPreview ? `Interest due: ₹${splitPreview.fullInterest}` : "Enter amount"} {...field} data-testid="input-amount-paid" />
                   </FormControl>
-                  <p className="text-xs text-slate-400">If paid amount exceeds interest, the surplus reduces the outstanding principal.</p>
+                  <p className="text-xs text-slate-400">Surplus above interest reduces the outstanding principal.</p>
                   <FormMessage />
                 </FormItem>
               )} />
 
-              {/* Live split preview when amount is entered */}
               {(() => {
                 if (!splitPreview || !("amountPaid" in splitPreview)) return null;
-                const sp = splitPreview as {
-                  outstanding: number; fullInterest: number; fullBase: number; fullCommission: number;
-                  amountPaid: number; interestPortion: number; principalReduction: number;
-                  newOutstanding: number; isPartial: boolean; shortfall?: number;
-                };
-                if (!sp.amountPaid || sp.amountPaid <= 0) return null;
-                const bgClass = sp.isPartial ? "bg-amber-50 border-amber-200" : sp.principalReduction > 0 ? "bg-blue-50 border-blue-200" : "bg-emerald-50 border-emerald-200";
+                const sp = splitPreview as any;
                 return (
-                  <div className={`p-3 rounded-lg border text-sm ${bgClass}`}>
-                    <p className="text-xs font-semibold mb-2 text-slate-600">Payment Split Preview</p>
-                    <div className="space-y-1.5 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Amount paid</span>
-                        <span className="font-semibold">{formatCurrency(sp.amountPaid)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">→ Interest portion</span>
-                        <span className="font-medium text-slate-700">{formatCurrency(sp.interestPortion)}</span>
-                      </div>
-                      {sp.principalReduction > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-600">→ Principal reduced by</span>
-                          <span className="font-semibold text-blue-700">−{formatCurrency(sp.principalReduction)}</span>
+                  <div className={`p-3 rounded-lg text-sm border ${sp.isPartial ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
+                    {sp.isPartial ? (
+                      <>
+                        <p className="font-medium text-amber-700 mb-2">⚠ Partial payment — {formatCurrency(sp.shortfall)} short</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div><p className="text-amber-600">Interest Portion</p><p className="font-semibold text-amber-900">{formatCurrency(sp.interestPortion)}</p></div>
+                          <div><p className="text-amber-600">Principal Reduction</p><p className="font-semibold text-amber-900">—</p></div>
                         </div>
-                      )}
-                      {sp.isPartial && sp.shortfall != null && (
-                        <div className="flex justify-between text-amber-700">
-                          <span>⚠ Interest shortfall</span>
-                          <span className="font-medium">{formatCurrency(sp.shortfall)}</span>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium text-emerald-700 mb-2">✓ Full payment{sp.principalReduction > 0 ? ` + ₹${sp.principalReduction} reduces principal` : ""}</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div><p className="text-emerald-600">Interest</p><p className="font-semibold text-emerald-900">{formatCurrency(sp.interestPortion)}</p></div>
+                          <div><p className="text-emerald-600">Principal ↓</p><p className="font-semibold text-emerald-900">{sp.principalReduction > 0 ? formatCurrency(sp.principalReduction) : "—"}</p></div>
+                          <div><p className="text-emerald-600">New Outstanding</p><p className="font-semibold text-emerald-900">{formatCurrency(sp.newOutstanding)}</p></div>
                         </div>
-                      )}
-                      <div className="flex justify-between border-t border-current border-opacity-20 pt-1.5 mt-1.5">
-                        <span className="text-slate-500">New outstanding principal</span>
-                        <span className={`font-bold ${sp.principalReduction > 0 ? "text-blue-700" : "text-slate-900"}`}>
-                          {formatCurrency(sp.newOutstanding)}
-                        </span>
-                      </div>
-                    </div>
+                      </>
+                    )}
                   </div>
                 );
               })()}
 
-              {!amountPaidWatch || amountPaidWatch.trim() === "" ? (
-                <FormField control={form.control} name="isPaid" render={({ field }) => (
-                  <FormItem className="flex items-center gap-3">
-                    <FormControl>
-                      <input type="checkbox" checked={field.value} onChange={field.onChange} className="h-4 w-4 rounded" data-testid="checkbox-payment-paid" />
-                    </FormControl>
-                    <FormLabel className="!mt-0">Mark as paid (interest only)</FormLabel>
-                  </FormItem>
-                )} />
-              ) : null}
+              <FormField control={form.control} name="isPaid" render={({ field }) => (
+                <FormItem className="flex items-center gap-3">
+                  <FormControl>
+                    <input type="checkbox" checked={field.value} onChange={field.onChange} className="h-4 w-4 rounded border-slate-300" data-testid="checkbox-is-paid" />
+                  </FormControl>
+                  <FormLabel className="!mt-0">Mark as paid now</FormLabel>
+                </FormItem>
+              )} />
 
-              {(form.watch("isPaid") && (!amountPaidWatch || amountPaidWatch.trim() === "")) && (
+              {form.watch("isPaid") && (
                 <FormField control={form.control} name="paidDate" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Paid Date</FormLabel>
-                    <FormControl><Input type="date" {...field} data-testid="input-payment-date" /></FormControl>
+                    <FormControl><Input type="date" {...field} defaultValue={new Date().toISOString().split("T")[0]} /></FormControl>
+                    <FormMessage />
                   </FormItem>
                 )} />
               )}
 
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-2">
                 <Button type="button" variant="outline" onClick={() => setShowAddPayment(false)}>Cancel</Button>
                 <Button type="submit" disabled={createPayment.isPending} className="bg-slate-900 hover:bg-slate-800" data-testid="button-submit-payment">
                   {createPayment.isPending ? "Recording..." : "Record Payment"}
@@ -603,109 +953,67 @@ export default function BorrowerDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Payment Dialog */}
+      {/* ── Bulk Payment Dialog ── */}
       <Dialog open={showBulkPayment} onOpenChange={setShowBulkPayment}>
         <DialogContent className="max-h-[90vh] overflow-y-auto" data-testid="dialog-bulk-payment">
-          <DialogHeader>
-            <DialogTitle>Bulk Record Payments</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-slate-500">Generate interest payment entries for a range of months at once. Already-existing months are skipped automatically.</p>
-
+          <DialogHeader><DialogTitle>Bulk Record Payments</DialogTitle></DialogHeader>
+          <p className="text-sm text-slate-500">Record interest-only payments for a date range. Existing months are skipped automatically.</p>
           <Form {...bulkForm}>
             <form onSubmit={bulkForm.handleSubmit(handleBulkPayment)} className="space-y-4">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">From</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField control={bulkForm.control} name="fromMonth" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Month</FormLabel>
-                      <Select value={String(field.value)} onValueChange={v => field.onChange(Number(v))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )} />
-                  <FormField control={bulkForm.control} name="fromYear" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Year</FormLabel>
-                      <FormControl><Input type="number" min={2000} {...field} /></FormControl>
-                    </FormItem>
-                  )} />
-                </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField control={bulkForm.control} name="fromMonth" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>From Month</FormLabel>
+                    <Select value={String(field.value)} onValueChange={v => field.onChange(Number(v))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+                <FormField control={bulkForm.control} name="fromYear" render={({ field }) => (
+                  <FormItem><FormLabel>From Year</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
+                )} />
+                <FormField control={bulkForm.control} name="toMonth" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>To Month</FormLabel>
+                    <Select value={String(field.value)} onValueChange={v => field.onChange(Number(v))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+                <FormField control={bulkForm.control} name="toYear" render={({ field }) => (
+                  <FormItem><FormLabel>To Year</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
+                )} />
               </div>
 
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">To</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField control={bulkForm.control} name="toMonth" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Month</FormLabel>
-                      <Select value={String(field.value)} onValueChange={v => field.onChange(Number(v))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )} />
-                  <FormField control={bulkForm.control} name="toYear" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Year</FormLabel>
-                      <FormControl><Input type="number" min={2000} {...field} /></FormControl>
-                    </FormItem>
-                  )} />
-                </div>
-              </div>
-
-              {/* Range preview */}
-              {bulkPreview.valid ? (
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-sm">
+              {bulkPreview.valid && (
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm">
                   {bulkPreview.count > 0 ? (
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-600">Will create</span>
-                      <span className="font-bold text-slate-900">{bulkPreview.count} payment{bulkPreview.count !== 1 ? "s" : ""}</span>
-                    </div>
+                    <p className="text-slate-700">Will create <strong>{bulkPreview.count} payment record{bulkPreview.count !== 1 ? "s" : ""}</strong>{bulkPreview.skipped ? ` (${bulkPreview.skipped} month${bulkPreview.skipped !== 1 ? "s" : ""} already exist and will be skipped)` : ""}.</p>
                   ) : (
-                    <p className="text-amber-600 font-medium">All months in this range already have records.</p>
+                    <p className="text-slate-400">No new records to create — all months in this range already exist.</p>
                   )}
-                  {(bulkPreview.skipped ?? 0) > 0 && (
-                    <p className="text-slate-400 text-xs mt-1">{bulkPreview.skipped} already existing month{bulkPreview.skipped !== 1 ? "s" : ""} will be skipped.</p>
-                  )}
-                </div>
-              ) : (
-                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
-                  "From" date must be before or equal to "To" date.
                 </div>
               )}
+              {!bulkPreview.valid && <p className="text-red-500 text-sm">From date must be before or equal to To date.</p>}
 
               <FormField control={bulkForm.control} name="isPaid" render={({ field }) => (
                 <FormItem className="flex items-center gap-3">
-                  <FormControl>
-                    <input type="checkbox" checked={field.value} onChange={field.onChange} className="h-4 w-4 rounded" />
-                  </FormControl>
+                  <FormControl><input type="checkbox" checked={field.value} onChange={field.onChange} className="h-4 w-4 rounded border-slate-300" /></FormControl>
                   <FormLabel className="!mt-0">Mark all as paid</FormLabel>
                 </FormItem>
               )} />
               {bulkForm.watch("isPaid") && (
                 <FormField control={bulkForm.control} name="paidDate" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Paid Date</FormLabel>
-                    <FormControl><Input type="date" {...field} /></FormControl>
-                  </FormItem>
+                  <FormItem><FormLabel>Paid Date</FormLabel><FormControl><Input type="date" {...field} defaultValue={new Date().toISOString().split("T")[0]} /></FormControl></FormItem>
                 )} />
               )}
 
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-2">
                 <Button type="button" variant="outline" onClick={() => setShowBulkPayment(false)}>Cancel</Button>
-                <Button
-                  type="submit"
-                  disabled={bulkLoading || !bulkPreview.valid || bulkPreview.count === 0}
-                  className="bg-slate-900 hover:bg-slate-800"
-                  data-testid="button-submit-bulk"
-                >
-                  {bulkLoading ? "Creating..." : `Create ${bulkPreview.count > 0 ? bulkPreview.count : ""} Payment${bulkPreview.count !== 1 ? "s" : ""}`}
+                <Button type="submit" disabled={bulkLoading || !bulkPreview.valid || bulkPreview.count === 0} className="bg-slate-900 hover:bg-slate-800" data-testid="button-submit-bulk">
+                  {bulkLoading ? "Creating..." : `Create ${bulkPreview.count || ""} Record${(bulkPreview.count ?? 0) !== 1 ? "s" : ""}`}
                 </Button>
               </div>
             </form>

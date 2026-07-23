@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
 import { useClerk } from "@clerk/react";
-import { Landmark, LayoutDashboard, Users, BarChart3, LogOut, ShieldAlert, Menu, X, Settings } from "lucide-react";
+import { Landmark, LayoutDashboard, Users, BarChart3, LogOut, ShieldAlert, Menu, X, Settings, CalendarCheck } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Layout({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) {
@@ -32,17 +32,17 @@ export default function Layout({ children, adminOnly = false }: { children: Reac
 
   const isAdmin = user?.role === "admin";
 
-  // Regular users see only Borrowers + Analytics
+  // Regular users + admin "My Work" section
   const userNavItems = [
     { href: "/borrowers", label: "Borrowers", icon: Users },
+    { href: "/collections", label: "Collections", icon: CalendarCheck },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
   ];
 
-  // Admins see their own section
+  // Admin-only system section
   const adminNavItems = [
     { href: "/admin/dashboard", label: "System Overview", icon: LayoutDashboard },
     { href: "/admin/users", label: "Manage Users", icon: Users },
-    { href: "/admin/borrowers", label: "All Borrowers", icon: Landmark },
   ];
 
   const pageTitle = (() => {

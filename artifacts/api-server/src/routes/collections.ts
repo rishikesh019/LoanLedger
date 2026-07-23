@@ -15,10 +15,8 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
 
-  const conditions = [eq(borrowersTable.status, "active")];
-  if (appUser.role !== "admin") {
-    conditions.push(eq(borrowersTable.userId, appUser.id));
-  }
+  // Always scope to requesting user — borrowers are private per user
+  const conditions = [eq(borrowersTable.status, "active"), eq(borrowersTable.userId, appUser.id)];
 
   const borrowers = await db.select().from(borrowersTable).where(and(...conditions));
 
