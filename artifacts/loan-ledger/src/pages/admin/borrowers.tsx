@@ -101,8 +101,9 @@ export default function AdminBorrowers() {
             <p className="text-slate-500">No borrowers found</p>
           </CardContent>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[560px]">
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Borrower</th>
@@ -150,11 +151,11 @@ export default function AdminBorrowers() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
 
-          {/* Pagination footer */}
-          <div className="flex items-center justify-between px-4 md:px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex-wrap gap-3">
+            {/* Pagination footer */}
+            <div className="flex items-center justify-between px-4 md:px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <p className="text-xs text-slate-500">
                 {total === 0 ? "No results" : `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total}`}
@@ -213,7 +214,8 @@ export default function AdminBorrowers() {
                 className="h-7 w-7 rounded flex items-center justify-center text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:pointer-events-none text-xs font-medium"
               >»</button>
             </div>
-          </div>
+            </div>
+            </>
         )}
       </Card>
     </div>
