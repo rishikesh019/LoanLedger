@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, ilike, sql } from "drizzle-orm";
 import { db, borrowersTable, paymentsTable, usersTable } from "@workspace/db";
 import {
   ListBorrowersQueryParams,
@@ -65,15 +65,37 @@ router.get("/borrowers", requireUser, async (req, res): Promise<void> => {
     return;
   }
   const { status, search } = queryParams.data;
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
 
   const conditions = [];
-  // Always scope to the requesting user — borrowers are private per user, even for admins
-  conditions.push(eq(borrowersTable.userId, appUser.id));
+  // Admin sees all borrowers; regular users only see their own
+  if (appUser.role !== "admin") {
+    conditions.push(eq(borrowersTable.userId, appUser.id));
+  }
   if (status) {
     conditions.push(eq(borrowersTable.status, status));
   }
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(or(
+      ilike(borrowersTable.name, pattern),
+      ilike(borrowersTable.address, pattern),
+      ilike(borrowersTable.phone, pattern),
+      ilike(borrowersTable.email, pattern),
+    ));
+  }
 
-  let borrowers = await db
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // Total count for pagination
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(borrowersTable)
+    .where(where);
+
+  // Paginated data
+  const rawBorrowers = await db
     .select({
       id: borrowersTable.id,
       userId: borrowersTable.userId,
@@ -96,21 +118,13 @@ router.get("/borrowers", requireUser, async (req, res): Promise<void> => {
     })
     .from(borrowersTable)
     .leftJoin(usersTable, eq(borrowersTable.userId, usersTable.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(borrowersTable.createdAt);
+    .where(where)
+    .orderBy(borrowersTable.name)
+    .limit(limit)
+    .offset((page - 1) * limit);
 
-  if (search) {
-    const s = search.toLowerCase();
-    borrowers = borrowers.filter(b =>
-      b.name.toLowerCase().includes(s) ||
-      b.address.toLowerCase().includes(s) ||
-      (b.phone && b.phone.toLowerCase().includes(s)) ||
-      (b.email && b.email.toLowerCase().includes(s))
-    );
-  }
-
-  const enriched = await Promise.all(borrowers.map(b => enrichBorrower(b)));
-  res.json(enriched);
+  const enriched = await Promise.all(rawBorrowers.map(b => enrichBorrower(b)));
+  res.json({ data: enriched, total, page, limit, totalPages: Math.ceil(total / limit) });
 });
 
 router.post("/borrowers", requireUser, async (req, res): Promise<void> => {
@@ -170,7 +184,7 @@ router.get("/borrowers/:id", requireUser, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Borrower not found" });
     return;
   }
-  if (borrower.userId !== appUser.id) {
+  if (borrower.userId !== appUser.id && appUser.role !== "admin") {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -190,7 +204,7 @@ router.patch("/borrowers/:id", requireUser, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Borrower not found" });
     return;
   }
-  if (existing.userId !== appUser.id) {
+  if (existing.userId !== appUser.id && appUser.role !== "admin") {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -226,7 +240,7 @@ router.delete("/borrowers/:id", requireUser, async (req, res): Promise<void> => 
     res.status(404).json({ error: "Borrower not found" });
     return;
   }
-  if (existing.userId !== appUser.id) {
+  if (existing.userId !== appUser.id && appUser.role !== "admin") {
     res.status(403).json({ error: "Forbidden" });
     return;
   }

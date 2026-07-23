@@ -99,7 +99,7 @@ export default function Dashboard() {
               <Link href="/borrowers" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">View all</Link>
             </CardHeader>
             <CardContent className="p-0">
-              {!borrowers || borrowers.length === 0 ? (
+              {!borrowers?.data || borrowers.data.length === 0 ? (
                 <div className="py-12 text-center text-slate-400">
                   <Users className="h-10 w-10 mx-auto mb-3 opacity-50" />
                   <p className="text-sm">No active borrowers yet</p>
@@ -107,7 +107,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {(borrowers ?? []).slice(0, 5).map(b => (
+                  {(borrowers.data ?? []).slice(0, 5).map(b => (
                     <Link key={b.id} href={`/borrowers/${b.id}`}>
                       <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 hover:bg-slate-50 transition-colors cursor-pointer" data-testid={`row-borrower-${b.id}`}>
                         <div className="min-w-0 flex-1 pr-3">

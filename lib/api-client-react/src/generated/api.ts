@@ -23,6 +23,7 @@ import type {
   AdminDashboard,
   Borrower,
   BorrowerInput,
+  BorrowerList,
   BorrowerUpdate,
   CollectionItem,
   DashboardStats,
@@ -592,11 +593,11 @@ export const getListBorrowersUrl = (params?: ListBorrowersParams,) => {
 }
 
 /**
- * @summary List borrowers (own for user, all for admin)
+ * @summary List borrowers (own for user, all for admin) with pagination
  */
-export const listBorrowers = async (params?: ListBorrowersParams, options?: RequestInit): Promise<Borrower[]> => {
+export const listBorrowers = async (params?: ListBorrowersParams, options?: RequestInit): Promise<BorrowerList> => {
 
-  return customFetch<Borrower[]>(getListBorrowersUrl(params),
+  return customFetch<BorrowerList>(getListBorrowersUrl(params),
   {
     ...options,
     method: 'GET'
@@ -639,7 +640,7 @@ export type ListBorrowersQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List borrowers (own for user, all for admin)
+ * @summary List borrowers (own for user, all for admin) with pagination
  */
 
 export function useListBorrowers<TData = Awaited<ReturnType<typeof listBorrowers>>, TError = ErrorType<unknown>>(

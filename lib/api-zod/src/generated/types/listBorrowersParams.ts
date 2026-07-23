@@ -10,4 +10,13 @@ import type { ListBorrowersStatus } from './listBorrowersStatus';
 export type ListBorrowersParams = {
 status?: ListBorrowersStatus;
 search?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };

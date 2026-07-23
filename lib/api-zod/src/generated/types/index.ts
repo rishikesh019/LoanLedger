@@ -9,6 +9,7 @@
 export * from './adminDashboard';
 export * from './borrower';
 export * from './borrowerInput';
+export * from './borrowerList';
 export * from './borrowerStatus';
 export * from './borrowerUpdate';
 export * from './borrowerUpdateStatus';

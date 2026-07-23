@@ -296,9 +296,30 @@ export interface CollectionItem {
   amountPaid?: number | null;
 }
 
+export interface BorrowerList {
+  data: Borrower[];
+  /** Total matching borrowers */
+  total: number;
+  /** Current page (1-indexed) */
+  page: number;
+  /** Items per page */
+  limit: number;
+  /** Total number of pages */
+  totalPages: number;
+}
+
 export type ListBorrowersParams = {
 status?: ListBorrowersStatus;
 search?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 
 export type ListBorrowersStatus = typeof ListBorrowersStatus[keyof typeof ListBorrowersStatus];

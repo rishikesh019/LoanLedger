@@ -32,7 +32,7 @@ export default function AdminBorrowers() {
     query: { queryKey: getListBorrowersQueryKey(borrowerParams) },
   });
 
-  const filteredBorrowers = (borrowers ?? []).filter(b =>
+  const filteredBorrowers = (borrowers?.data ?? []).filter(b =>
     !userFilter || String(b.userId) === userFilter
   );
 

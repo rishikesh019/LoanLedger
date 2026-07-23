@@ -129,14 +129,24 @@ export const UpdateUserResponse = zod.object({
 
 
 /**
- * @summary List borrowers (own for user, all for admin)
+ * @summary List borrowers (own for user, all for admin) with pagination
  */
+export const listBorrowersQueryPageDefault = 1;
+
+export const listBorrowersQueryLimitDefault = 20;
+export const listBorrowersQueryLimitMax = 100;
+
+
+
 export const ListBorrowersQueryParams = zod.object({
   "status": zod.enum(['active', 'closed', 'defaulted']).optional(),
-  "search": zod.coerce.string().optional()
+  "search": zod.coerce.string().optional(),
+  "page": zod.coerce.number().min(1).default(listBorrowersQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listBorrowersQueryLimitMax).default(listBorrowersQueryLimitDefault)
 })
 
-export const ListBorrowersResponseItem = zod.object({
+export const ListBorrowersResponse = zod.object({
+  "data": zod.array(zod.object({
   "id": zod.number(),
   "userId": zod.number(),
   "userName": zod.string().nullish(),
@@ -159,8 +169,12 @@ export const ListBorrowersResponseItem = zod.object({
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
+})),
+  "total": zod.number().describe('Total matching borrowers'),
+  "page": zod.number().describe('Current page (1-indexed)'),
+  "limit": zod.number().describe('Items per page'),
+  "totalPages": zod.number().describe('Total number of pages')
 })
-export const ListBorrowersResponse = zod.array(ListBorrowersResponseItem)
 
 
 /**
