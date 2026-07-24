@@ -232,6 +232,7 @@ export default function Borrowers() {
                             <div>
                               <p className="font-medium text-slate-900">{b.name}</p>
                               <p className="text-xs text-slate-400 mt-0.5 hidden sm:block truncate max-w-[200px]">{b.address}</p>
+                              <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1 lg:hidden"><Calendar className="h-3 w-3" />{formatDate(b.startDate)}</p>
                             </div>
                             {b.overdueCount > 0 && (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200 whitespace-nowrap">
