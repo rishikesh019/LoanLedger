@@ -506,6 +506,7 @@ export const GetCurrentMonthCollectionsResponseItem = zod.object({
   "borrowerId": zod.number(),
   "borrowerName": zod.string(),
   "phone": zod.string().nullish(),
+  "startDate": zod.string().optional().describe('Date the loan was issued (YYYY-MM-DD)'),
   "principalAmount": zod.number(),
   "outstandingPrincipal": zod.number(),
   "interestRate": zod.number(),

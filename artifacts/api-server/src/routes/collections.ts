@@ -50,6 +50,7 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
       borrowerId: b.id,
       borrowerName: b.name,
       phone: b.phone,
+      startDate: b.startDate ?? "",
       principalAmount: Number(b.principalAmount),
       outstandingPrincipal,
       interestRate: Number(b.interestRate),

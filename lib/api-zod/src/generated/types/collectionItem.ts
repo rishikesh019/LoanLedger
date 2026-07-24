@@ -11,6 +11,8 @@ export interface CollectionItem {
   borrowerName: string;
   /** @nullable */
   phone?: string | null;
+  /** Date the loan was issued (YYYY-MM-DD) */
+  startDate?: string;
   principalAmount: number;
   outstandingPrincipal: number;
   interestRate: number;

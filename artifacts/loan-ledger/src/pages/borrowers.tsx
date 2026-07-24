@@ -13,7 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
-import { Search, Plus, IndianRupee, Trash2, Eye, AlertTriangle, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { Search, Plus, IndianRupee, Trash2, Eye, AlertTriangle, ChevronLeft, ChevronRight, User, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const borrowerSchema = z.object({
@@ -45,6 +45,12 @@ function statusBadge(status: string) {
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount);
+}
+
+function formatDate(dateStr: string | null | undefined) {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 const PAGE_SIZES = [10, 20, 50] as const;
@@ -205,6 +211,7 @@ export default function Borrowers() {
                     )}
                     <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Principal</th>
                     <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rate</th>
+                    <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Loan Date</th>
                     <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Monthly</th>
                     <th className="px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
                     <th className="px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
@@ -242,6 +249,11 @@ export default function Borrowers() {
                         )}
                         <td className="px-4 md:px-6 py-3 md:py-4 text-right font-semibold text-slate-900 whitespace-nowrap">{formatCurrency(b.principalAmount)}</td>
                         <td className="px-4 md:px-6 py-3 md:py-4 text-right font-medium text-slate-700 whitespace-nowrap">{b.interestRate}%</td>
+                        <td className="px-4 md:px-6 py-3 md:py-4 hidden lg:table-cell">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                            <Calendar className="h-3.5 w-3.5 text-slate-400" />{formatDate(b.startDate)}
+                          </span>
+                        </td>
                         <td className="px-4 md:px-6 py-3 md:py-4 text-right font-medium text-slate-900 whitespace-nowrap hidden md:table-cell">{formatCurrency(monthlyInterest)}</td>
                         <td className="px-4 md:px-6 py-3 md:py-4 hidden sm:table-cell">{statusBadge(b.status)}</td>
                         <td className="px-4 md:px-6 py-3 md:py-4">
