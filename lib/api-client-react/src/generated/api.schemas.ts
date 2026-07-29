@@ -298,6 +298,49 @@ export interface CollectionItem {
   amountPaid?: number | null;
 }
 
+export interface Fund {
+  id: number;
+  adminId: number;
+  userId: number;
+  /** @nullable */
+  userName?: string | null;
+  /** @nullable */
+  userEmail?: string | null;
+  amount: number;
+  paymentMethod: string;
+  /** @nullable */
+  notes?: string | null;
+  fundedAt: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type FundList = Fund[];
+
+export interface FundInput {
+  userId: number;
+  /** @minimum 0.01 */
+  amount: number;
+  paymentMethod?: string;
+  notes?: string;
+  fundedAt?: string;
+}
+
+export interface FundUpdate {
+  /** @minimum 0.01 */
+  amount?: number;
+  paymentMethod?: string;
+  notes?: string;
+  fundedAt?: string;
+}
+
+export interface UserBalance {
+  userId: number;
+  totalFunded: number;
+  totalDisbursed: number;
+  available: number;
+}
+
 export interface BorrowerList {
   data: Borrower[];
   /** Total matching borrowers */

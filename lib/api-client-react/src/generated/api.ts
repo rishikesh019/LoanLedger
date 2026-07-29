@@ -27,6 +27,10 @@ import type {
   BorrowerUpdate,
   CollectionItem,
   DashboardStats,
+  Fund,
+  FundInput,
+  FundList,
+  FundUpdate,
   GetMonthlyStatsParams,
   GetYearlyStatsParams,
   HealthStatus,
@@ -37,6 +41,7 @@ import type {
   PaymentUpdate,
   User,
   UserAdminUpdate,
+  UserBalance,
   UserInput,
   UserStats,
   UserUpdate,
@@ -1633,6 +1638,373 @@ export function useGetAdminDashboard<TData = Awaited<ReturnType<typeof getAdminD
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAdminDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListFundsUrl = () => {
+
+
+
+
+  return `/api/funds`
+}
+
+/**
+ * @summary List fund transfers (admin sees all, user sees own)
+ */
+export const listFunds = async ( options?: RequestInit): Promise<FundList> => {
+
+  return customFetch<FundList>(getListFundsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFundsQueryKey = () => {
+    return [
+    `/api/funds`
+    ] as const;
+    }
+
+
+export const getListFundsQueryOptions = <TData = Awaited<ReturnType<typeof listFunds>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFunds>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFundsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFunds>>> = ({ signal }) => listFunds({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFunds>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFundsQueryResult = NonNullable<Awaited<ReturnType<typeof listFunds>>>
+export type ListFundsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List fund transfers (admin sees all, user sees own)
+ */
+
+export function useListFunds<TData = Awaited<ReturnType<typeof listFunds>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFunds>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFundsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateFundUrl = () => {
+
+
+
+
+  return `/api/funds`
+}
+
+/**
+ * @summary Admin - record a fund transfer to a user
+ */
+export const createFund = async (fundInput: FundInput, options?: RequestInit): Promise<Fund> => {
+
+  return customFetch<Fund>(getCreateFundUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      fundInput,)
+  }
+);}
+
+
+
+
+export const getCreateFundMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFund>>, TError,{data: BodyType<FundInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFund>>, TError,{data: BodyType<FundInput>}, TContext> => {
+
+const mutationKey = ['createFund'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFund>>, {data: BodyType<FundInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createFund(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFundMutationResult = NonNullable<Awaited<ReturnType<typeof createFund>>>
+    export type CreateFundMutationBody = BodyType<FundInput>
+    export type CreateFundMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Admin - record a fund transfer to a user
+ */
+export const useCreateFund = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFund>>, TError,{data: BodyType<FundInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createFund>>,
+        TError,
+        {data: BodyType<FundInput>},
+        TContext
+      > => {
+      return useMutation(getCreateFundMutationOptions(options));
+    }
+
+export const getUpdateFundUrl = (id: number,) => {
+
+
+
+
+  return `/api/funds/${id}`
+}
+
+/**
+ * @summary Admin - update a fund transfer record
+ */
+export const updateFund = async (id: number,
+    fundUpdate: FundUpdate, options?: RequestInit): Promise<Fund> => {
+
+  return customFetch<Fund>(getUpdateFundUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      fundUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateFundMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFund>>, TError,{id: number;data: BodyType<FundUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateFund>>, TError,{id: number;data: BodyType<FundUpdate>}, TContext> => {
+
+const mutationKey = ['updateFund'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateFund>>, {id: number;data: BodyType<FundUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateFund(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateFundMutationResult = NonNullable<Awaited<ReturnType<typeof updateFund>>>
+    export type UpdateFundMutationBody = BodyType<FundUpdate>
+    export type UpdateFundMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin - update a fund transfer record
+ */
+export const useUpdateFund = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFund>>, TError,{id: number;data: BodyType<FundUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateFund>>,
+        TError,
+        {id: number;data: BodyType<FundUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateFundMutationOptions(options));
+    }
+
+export const getDeleteFundUrl = (id: number,) => {
+
+
+
+
+  return `/api/funds/${id}`
+}
+
+/**
+ * @summary Admin - delete a fund transfer record
+ */
+export const deleteFund = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteFundUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteFundMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFund>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteFund>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteFund'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteFund>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteFund(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteFundMutationResult = NonNullable<Awaited<ReturnType<typeof deleteFund>>>
+
+    export type DeleteFundMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Admin - delete a fund transfer record
+ */
+export const useDeleteFund = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFund>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteFund>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteFundMutationOptions(options));
+    }
+
+export const getGetUserBalanceUrl = (id: number,) => {
+
+
+
+
+  return `/api/users/${id}/balance`
+}
+
+/**
+ * @summary Get funded vs disbursed balance for a user
+ */
+export const getUserBalance = async (id: number, options?: RequestInit): Promise<UserBalance> => {
+
+  return customFetch<UserBalance>(getGetUserBalanceUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUserBalanceQueryKey = (id: number,) => {
+    return [
+    `/api/users/${id}/balance`
+    ] as const;
+    }
+
+
+export const getGetUserBalanceQueryOptions = <TData = Awaited<ReturnType<typeof getUserBalance>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserBalance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUserBalanceQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserBalance>>> = ({ signal }) => getUserBalance(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUserBalance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUserBalanceQueryResult = NonNullable<Awaited<ReturnType<typeof getUserBalance>>>
+export type GetUserBalanceQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get funded vs disbursed balance for a user
+ */
+
+export function useGetUserBalance<TData = Awaited<ReturnType<typeof getUserBalance>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserBalance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUserBalanceQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

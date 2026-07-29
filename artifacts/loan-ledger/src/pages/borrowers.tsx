@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useListBorrowers, useCreateBorrower, useDeleteBorrower, getListBorrowersQueryKey } from "@workspace/api-client-react";
+import { useListBorrowers, useCreateBorrower, useDeleteBorrower, getListBorrowersQueryKey, useGetMe, useGetUserBalance, getGetUserBalanceQueryKey } from "@workspace/api-client-react";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link } from "wouter";
-import { Search, Plus, IndianRupee, Trash2, Eye, AlertTriangle, ChevronLeft, ChevronRight, User, Calendar } from "lucide-react";
+import { Search, Plus, IndianRupee, Trash2, Eye, AlertTriangle, ChevronLeft, ChevronRight, User, Calendar, Wallet, TrendingDown, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const borrowerSchema = z.object({
@@ -84,6 +84,13 @@ export default function Borrowers() {
   };
 
   const isAdmin = useIsAdmin();
+  const { data: me } = useGetMe();
+  const { data: balance } = useGetUserBalance(me?.id ?? 0, {
+    query: {
+      queryKey: getGetUserBalanceQueryKey(me?.id ?? 0),
+      enabled: !isAdmin && !!me?.id,
+    },
+  });
 
   const { data: result, isLoading } = useListBorrowers(params, {
     query: { queryKey: getListBorrowersQueryKey(params) },
@@ -158,6 +165,39 @@ export default function Borrowers() {
           <span className="sm:hidden">Add</span>
         </Button>
       </div>
+
+      {/* Balance widget — shown only to non-admin users */}
+      {!isAdmin && balance && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-2.5 shadow-sm">
+            <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+              <Wallet className="h-4 w-4 text-emerald-700" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">Total Funded</p>
+              <p className="text-sm font-bold text-slate-900 truncate">{formatCurrency(balance.totalFunded)}</p>
+            </div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-2.5 shadow-sm">
+            <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <TrendingDown className="h-4 w-4 text-blue-700" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">Disbursed</p>
+              <p className="text-sm font-bold text-slate-900 truncate">{formatCurrency(balance.totalDisbursed)}</p>
+            </div>
+          </div>
+          <div className={`border rounded-xl p-3 flex items-center gap-2.5 shadow-sm ${balance.available >= 0 ? "bg-white border-slate-200" : "bg-red-50 border-red-200"}`}>
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${balance.available >= 0 ? "bg-purple-100" : "bg-red-100"}`}>
+              <TrendingUp className={`h-4 w-4 ${balance.available >= 0 ? "text-purple-700" : "text-red-600"}`} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">Available</p>
+              <p className={`text-sm font-bold truncate ${balance.available >= 0 ? "text-slate-900" : "text-red-600"}`}>{formatCurrency(balance.available)}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-2 md:gap-3">

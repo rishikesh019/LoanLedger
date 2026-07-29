@@ -500,6 +500,97 @@ export const GetAdminDashboardResponse = zod.object({
 
 
 /**
+ * @summary List fund transfers (admin sees all, user sees own)
+ */
+export const ListFundsResponseItem = zod.object({
+  "id": zod.number(),
+  "adminId": zod.number(),
+  "userId": zod.number(),
+  "userName": zod.string().nullish(),
+  "userEmail": zod.string().nullish(),
+  "amount": zod.number(),
+  "paymentMethod": zod.string(),
+  "notes": zod.string().nullish(),
+  "fundedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+export const ListFundsResponse = zod.array(ListFundsResponseItem)
+
+
+/**
+ * @summary Admin - record a fund transfer to a user
+ */
+export const createFundBodyAmountMin = 0.01;
+
+export const createFundBodyPaymentMethodDefault = `online`;
+
+export const CreateFundBody = zod.object({
+  "userId": zod.number(),
+  "amount": zod.number().min(createFundBodyAmountMin),
+  "paymentMethod": zod.string().default(createFundBodyPaymentMethodDefault),
+  "notes": zod.string().optional(),
+  "fundedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Admin - update a fund transfer record
+ */
+export const UpdateFundParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateFundBodyAmountMin = 0.01;
+
+
+
+export const UpdateFundBody = zod.object({
+  "amount": zod.number().min(updateFundBodyAmountMin).optional(),
+  "paymentMethod": zod.string().optional(),
+  "notes": zod.string().optional(),
+  "fundedAt": zod.coerce.date().optional()
+})
+
+export const UpdateFundResponse = zod.object({
+  "id": zod.number(),
+  "adminId": zod.number(),
+  "userId": zod.number(),
+  "userName": zod.string().nullish(),
+  "userEmail": zod.string().nullish(),
+  "amount": zod.number(),
+  "paymentMethod": zod.string(),
+  "notes": zod.string().nullish(),
+  "fundedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Admin - delete a fund transfer record
+ */
+export const DeleteFundParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Get funded vs disbursed balance for a user
+ */
+export const GetUserBalanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetUserBalanceResponse = zod.object({
+  "userId": zod.number(),
+  "totalFunded": zod.number(),
+  "totalDisbursed": zod.number(),
+  "available": zod.number()
+})
+
+
+/**
  * @summary Current month payment collection status per borrower
  */
 export const GetCurrentMonthCollectionsResponseItem = zod.object({

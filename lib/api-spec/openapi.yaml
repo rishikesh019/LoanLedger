@@ -18,6 +18,8 @@ tags:
     description: Loan payment records
   - name: analytics
     description: Statistics and analytics
+  - name: funds
+    description: Fund transfer tracking
 
 paths:
   /healthz:
@@ -431,6 +433,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminDashboard"
+
+  # ─── FUNDS ────────────────────────────────────────────────────────────────
+  /funds:
+    get:
+      operationId: listFunds
+      tags: [funds]
+      summary: List fund transfers (admin sees all, user sees own)
+      responses:
+        "200":
+          description: List of fund transfers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundList"
+    post:
+      operationId: createFund
+      tags: [funds]
+      summary: Admin - record a fund transfer to a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FundInput"
+      responses:
+        "201":
+          description: Created fund record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fund"
+
+  /funds/{id}:
+    patch:
+      operationId: updateFund
+      tags: [funds]
+      summary: Admin - update a fund transfer record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FundUpdate"
+      responses:
+        "200":
+          description: Updated fund record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fund"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteFund
+      tags: [funds]
+      summary: Admin - delete a fund transfer record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /users/{id}/balance:
+    get:
+      operationId: getUserBalance
+      tags: [users]
+      summary: Get funded vs disbursed balance for a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Balance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserBalance"
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
 
   # ─── COLLECTIONS ──────────────────────────────────────────────────────────
   /collections/current-month:
@@ -875,6 +971,87 @@ components:
           type: boolean
         amountPaid:
           type: ["number", "null"]
+
+    # ── Fund ───────────────────────────────────────────────────────────────────
+    Fund:
+      type: object
+      required: [id, adminId, userId, amount, paymentMethod, fundedAt, createdAt]
+      properties:
+        id:
+          type: integer
+        adminId:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: ["string", "null"]
+        userEmail:
+          type: ["string", "null"]
+        amount:
+          type: number
+        paymentMethod:
+          type: string
+        notes:
+          type: ["string", "null"]
+        fundedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    FundList:
+      type: array
+      items:
+        $ref: "#/components/schemas/Fund"
+
+    FundInput:
+      type: object
+      required: [userId, amount]
+      properties:
+        userId:
+          type: integer
+        amount:
+          type: number
+          minimum: 0.01
+        paymentMethod:
+          type: string
+          default: online
+        notes:
+          type: string
+        fundedAt:
+          type: string
+          format: date-time
+
+    FundUpdate:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+        paymentMethod:
+          type: string
+        notes:
+          type: string
+        fundedAt:
+          type: string
+          format: date-time
+
+    UserBalance:
+      type: object
+      required: [userId, totalFunded, totalDisbursed, available]
+      properties:
+        userId:
+          type: integer
+        totalFunded:
+          type: number
+        totalDisbursed:
+          type: number
+        available:
+          type: number
 
     # ── BorrowerList ───────────────────────────────────────────────────────────
     BorrowerList:
