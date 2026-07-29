@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetMe } from "@workspace/api-client-react";
 import { useClerk } from "@clerk/react";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { Landmark, LayoutDashboard, Users, BarChart3, LogOut, ShieldAlert, Menu, X, Settings, CalendarCheck } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -10,12 +11,13 @@ export default function Layout({ children, adminOnly = false }: { children: Reac
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { data: user, isLoading } = useGetMe();
   const { signOut } = useClerk();
+  const isAdmin = useIsAdmin();
 
   if (isLoading) {
     return <div className="flex h-screen w-full items-center justify-center bg-slate-50"><Skeleton className="h-32 w-32 rounded-full" /></div>;
   }
 
-  if (adminOnly && user?.role !== "admin") {
+  if (adminOnly && !isAdmin) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-50 px-4">
         <div className="text-center max-w-md p-8 bg-white rounded-xl shadow-sm border border-slate-200">
@@ -29,8 +31,6 @@ export default function Layout({ children, adminOnly = false }: { children: Reac
       </div>
     );
   }
-
-  const isAdmin = user?.role === "admin";
 
   // Regular users + admin "My Work" section
   const userNavItems = [

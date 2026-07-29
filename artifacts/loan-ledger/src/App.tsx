@@ -22,6 +22,7 @@ import AdminBorrowers from "@/pages/admin/borrowers";
 
 import Layout from "@/components/layout";
 import { useGetMe } from "@workspace/api-client-react";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 
 const queryClient = new QueryClient();
 
@@ -104,9 +105,10 @@ function SignInPage() {
 
 /** After sign-in, redirect based on role: admins → /admin/dashboard, users → /borrowers */
 function RoleBasedRedirect() {
-  const { data: user, isLoading } = useGetMe();
+  const { isLoading } = useGetMe();
+  const isAdmin = useIsAdmin();
   if (isLoading) return null;
-  if (user?.role === "admin") return <Redirect to="/admin/dashboard" />;
+  if (isAdmin) return <Redirect to="/admin/dashboard" />;
   return <Redirect to="/borrowers" />;
 }
 

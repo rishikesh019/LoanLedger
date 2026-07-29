@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
-import { useListBorrowers, useCreateBorrower, useDeleteBorrower, useGetMe, getListBorrowersQueryKey } from "@workspace/api-client-react";
+import { useState, useEffect } from "react";
+import { useListBorrowers, useCreateBorrower, useDeleteBorrower, getListBorrowersQueryKey } from "@workspace/api-client-react";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,8 +83,7 @@ export default function Borrowers() {
     limit,
   };
 
-  const { data: me } = useGetMe();
-  const isAdmin = me?.role === "admin";
+  const isAdmin = useIsAdmin();
 
   const { data: result, isLoading } = useListBorrowers(params, {
     query: { queryKey: getListBorrowersQueryKey(params) },
