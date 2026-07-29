@@ -17,6 +17,7 @@ export const borrowersTable = pgTable("borrowers", {
   tenure: integer("tenure"),
   startDate: text("start_date").notNull(),
   endDate: text("end_date"),
+  parentId: integer("parent_id"),
   status: text("status").notNull().default("active"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

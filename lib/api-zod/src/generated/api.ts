@@ -136,13 +136,15 @@ export const listBorrowersQueryPageDefault = 1;
 export const listBorrowersQueryLimitDefault = 20;
 export const listBorrowersQueryLimitMax = 100;
 
+export const listBorrowersQueryMonthRegExp = new RegExp('^\\d{4}-\\d{2}$');
 
 
 export const ListBorrowersQueryParams = zod.object({
   "status": zod.enum(['active', 'closed', 'defaulted']).optional(),
   "search": zod.coerce.string().optional(),
   "page": zod.coerce.number().min(1).default(listBorrowersQueryPageDefault),
-  "limit": zod.coerce.number().min(1).max(listBorrowersQueryLimitMax).default(listBorrowersQueryLimitDefault)
+  "limit": zod.coerce.number().min(1).max(listBorrowersQueryLimitMax).default(listBorrowersQueryLimitDefault),
+  "month": zod.coerce.string().regex(listBorrowersQueryMonthRegExp).optional().describe('Filter by loan start month (YYYY-MM)')
 })
 
 export const ListBorrowersResponse = zod.object({
@@ -166,6 +168,7 @@ export const ListBorrowersResponse = zod.object({
   "totalInterestEarned": zod.number().nullish(),
   "totalCommissionEarned": zod.number().nullish(),
   "monthsElapsed": zod.number().nullish(),
+  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -225,6 +228,7 @@ export const GetBorrowerResponse = zod.object({
   "totalInterestEarned": zod.number().nullish(),
   "totalCommissionEarned": zod.number().nullish(),
   "monthsElapsed": zod.number().nullish(),
+  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -270,6 +274,7 @@ export const UpdateBorrowerResponse = zod.object({
   "totalInterestEarned": zod.number().nullish(),
   "totalCommissionEarned": zod.number().nullish(),
   "monthsElapsed": zod.number().nullish(),
+  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -281,6 +286,95 @@ export const UpdateBorrowerResponse = zod.object({
  */
 export const DeleteBorrowerParams = zod.object({
   "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List sub-accounts of a parent borrower
+ */
+export const ListBorrowerSubAccountsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListBorrowerSubAccountsResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "userName": zod.string().nullish(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "principalAmount": zod.number().describe('Loan principal amount in currency units'),
+  "interestRate": zod.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
+  "baseInterestRate": zod.number().describe('Base interest rate, fixed at 10%'),
+  "commissionRate": zod.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
+  "tenure": zod.number().nullish().describe('Loan tenure in months (optional)'),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.coerce.date().nullish(),
+  "status": zod.enum(['active', 'closed', 'defaulted']),
+  "notes": zod.string().nullish(),
+  "totalInterestEarned": zod.number().nullish(),
+  "totalCommissionEarned": zod.number().nullish(),
+  "monthsElapsed": zod.number().nullish(),
+  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
+  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+export const ListBorrowerSubAccountsResponse = zod.array(ListBorrowerSubAccountsResponseItem)
+
+
+/**
+ * @summary Create a sub-account (loan tranche) for a parent borrower
+ */
+export const CreateBorrowerSubAccountParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const createBorrowerSubAccountBodyInterestRateMin = 0;
+
+
+
+export const CreateBorrowerSubAccountBody = zod.object({
+  "principalAmount": zod.number(),
+  "interestRate": zod.number().min(createBorrowerSubAccountBodyInterestRateMin).describe('Total monthly interest % (default 10, can be higher)'),
+  "tenure": zod.number().optional().describe('Tenure in months (optional)'),
+  "startDate": zod.coerce.date(),
+  "notes": zod.string().optional()
+})
+
+
+/**
+ * @summary Merge all sub-accounts into the parent borrower
+ */
+export const MergeBorrowerSubAccountsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MergeBorrowerSubAccountsResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "userName": zod.string().nullish(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "principalAmount": zod.number().describe('Loan principal amount in currency units'),
+  "interestRate": zod.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
+  "baseInterestRate": zod.number().describe('Base interest rate, fixed at 10%'),
+  "commissionRate": zod.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
+  "tenure": zod.number().nullish().describe('Loan tenure in months (optional)'),
+  "startDate": zod.coerce.date(),
+  "endDate": zod.coerce.date().nullish(),
+  "status": zod.enum(['active', 'closed', 'defaulted']),
+  "notes": zod.string().nullish(),
+  "totalInterestEarned": zod.number().nullish(),
+  "totalCommissionEarned": zod.number().nullish(),
+  "monthsElapsed": zod.number().nullish(),
+  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
+  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
 })
 
 

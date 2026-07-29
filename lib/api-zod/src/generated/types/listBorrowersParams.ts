@@ -19,4 +19,9 @@ page?: number;
  * @maximum 100
  */
 limit?: number;
+/**
+ * Filter by loan start month (YYYY-MM)
+ * @pattern ^\d{4}-\d{2}$
+ */
+month?: string;
 };

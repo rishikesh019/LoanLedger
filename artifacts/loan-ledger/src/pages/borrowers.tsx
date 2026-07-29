@@ -61,6 +61,7 @@ export default function Borrowers() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [monthFilter, setMonthFilter] = useState<string | undefined>(undefined);
   const [showAdd, setShowAdd] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -74,11 +75,12 @@ export default function Borrowers() {
   }, [search]);
 
   // Reset page when filter changes
-  useEffect(() => { setPage(1); }, [statusFilter, limit]);
+  useEffect(() => { setPage(1); }, [statusFilter, monthFilter, limit]);
 
   const params = {
     search: debouncedSearch || undefined,
     status: statusFilter as any,
+    month: monthFilter,
     page,
     limit,
   };
@@ -200,8 +202,8 @@ export default function Borrowers() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-2 md:gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap gap-2 md:gap-3">
+        <div className="relative flex-1 min-w-[160px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Search by name, address, phone…"
@@ -222,6 +224,26 @@ export default function Borrowers() {
             <SelectItem value="defaulted">Defaulted</SelectItem>
           </SelectContent>
         </Select>
+        <div className="relative flex items-center">
+          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+          <input
+            type="month"
+            value={monthFilter ?? ""}
+            onChange={e => setMonthFilter(e.target.value || undefined)}
+            className="h-10 pl-9 pr-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            title="Filter by loan start month"
+            data-testid="input-month-filter"
+          />
+          {monthFilter && (
+            <button
+              onClick={() => setMonthFilter(undefined)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              title="Clear month filter"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}

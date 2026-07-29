@@ -110,6 +110,11 @@ export interface Borrower {
   totalCommissionEarned?: number | null;
   /** @nullable */
   monthsElapsed?: number | null;
+  /**
+     * Parent borrower ID for sub-accounts; null for top-level borrowers
+     * @nullable
+     */
+  parentId?: number | null;
   /** Number of unpaid payments for past months */
   overdueCount: number;
   createdAt: string;
@@ -131,6 +136,19 @@ export interface BorrowerInput {
   tenure?: number;
   startDate: string;
   endDate?: string;
+  notes?: string;
+}
+
+export interface SubAccountInput {
+  principalAmount: number;
+  /**
+     * Total monthly interest % (default 10, can be higher)
+     * @minimum 0
+     */
+  interestRate: number;
+  /** Tenure in months (optional) */
+  tenure?: number;
+  startDate: string;
   notes?: string;
 }
 
@@ -365,6 +383,11 @@ page?: number;
  * @maximum 100
  */
 limit?: number;
+/**
+ * Filter by loan start month (YYYY-MM)
+ * @pattern ^\d{4}-\d{2}$
+ */
+month?: string;
 };
 
 export type ListBorrowersStatus = typeof ListBorrowersStatus[keyof typeof ListBorrowersStatus];

@@ -155,7 +155,9 @@ router.post("/borrowers/:borrowerId/payments", requireUser, async (req, res): Pr
     principalReduction: String(principalReduction),
     outstandingPrincipal: outstandingAfter != null ? String(outstandingAfter) : null,
     isPaid: finalIsPaid,
-    paidDate: paidDate || null,
+    paidDate: paidDate
+      ? (paidDate instanceof Date ? paidDate.toISOString().split("T")[0] : String(paidDate))
+      : null,
     notes: notes || null,
   }).returning();
 
@@ -247,8 +249,14 @@ router.patch("/borrowers/:borrowerId/payments/:paymentId", requireUser, async (r
   const parsed = UpdatePaymentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  const updateData = {
+    ...parsed.data,
+    paidDate: parsed.data.paidDate instanceof Date
+      ? parsed.data.paidDate.toISOString().split("T")[0]
+      : parsed.data.paidDate,
+  };
   const [updated] = await db.update(paymentsTable)
-    .set(parsed.data)
+    .set(updateData)
     .where(and(eq(paymentsTable.id, params.data.paymentId), eq(paymentsTable.borrowerId, params.data.borrowerId)))
     .returning();
   if (!updated) { res.status(404).json({ error: "Payment not found" }); return; }

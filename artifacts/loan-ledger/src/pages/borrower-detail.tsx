@@ -3,7 +3,8 @@ import { useRoute } from "wouter";
 import {
   useGetBorrower, useListPayments, useCreatePayment, useUpdatePayment,
   useDeletePayment, useUpdateBorrower,
-  getGetBorrowerQueryKey, getListPaymentsQueryKey, getListBorrowersQueryKey,
+  useListBorrowerSubAccounts, useCreateBorrowerSubAccount, useMergeBorrowerSubAccounts,
+  getGetBorrowerQueryKey, getListPaymentsQueryKey, getListBorrowersQueryKey, getListBorrowerSubAccountsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
@@ -21,6 +22,7 @@ import { z } from "zod";
 import {
   ArrowLeft, Plus, CheckCircle, Circle, Trash2, Calendar, CalendarRange,
   TrendingDown, Info, Edit2, XCircle, Printer, AlertTriangle, Clock,
+  Network, GitMerge, ExternalLink,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -64,9 +66,18 @@ const editSchema = z.object({
   status: z.enum(["active", "closed", "defaulted"]),
 });
 
+const subAccountSchema = z.object({
+  principalAmount: z.coerce.number().min(1, "Amount must be positive"),
+  interestRate: z.coerce.number().min(0).default(10),
+  startDate: z.string().min(1, "Start date is required"),
+  tenure: z.coerce.number().optional(),
+  notes: z.string().optional(),
+});
+
 type PaymentFormData = z.infer<typeof paymentSchema>;
 type BulkFormData = z.infer<typeof bulkSchema>;
 type EditFormData = z.infer<typeof editSchema>;
+type SubAccountFormData = z.infer<typeof subAccountSchema>;
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -89,6 +100,8 @@ export default function BorrowerDetail() {
   const [showBulkPayment, setShowBulkPayment] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showCloseLoan, setShowCloseLoan] = useState(false);
+  const [showAddSubAccount, setShowAddSubAccount] = useState(false);
+  const [showMergeConfirm, setShowMergeConfirm] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -96,10 +109,13 @@ export default function BorrowerDetail() {
 
   const { data: borrower, isLoading: borrowerLoading } = useGetBorrower(id, { query: { enabled: !!id, queryKey: getGetBorrowerQueryKey(id) } });
   const { data: payments, isLoading: paymentsLoading } = useListPayments(id, { query: { enabled: !!id, queryKey: getListPaymentsQueryKey(id) } });
+  const { data: subAccounts } = useListBorrowerSubAccounts(id, { query: { enabled: !!id && !borrower?.parentId, queryKey: getListBorrowerSubAccountsQueryKey(id) } });
   const createPayment = useCreatePayment();
   const updatePayment = useUpdatePayment();
   const deletePayment = useDeletePayment();
   const updateBorrower = useUpdateBorrower();
+  const createSubAccount = useCreateBorrowerSubAccount();
+  const mergeSubs = useMergeBorrowerSubAccounts();
 
   const now = new Date();
   const form = useForm<PaymentFormData>({
@@ -110,6 +126,11 @@ export default function BorrowerDetail() {
   const bulkForm = useForm<BulkFormData>({
     resolver: zodResolver(bulkSchema),
     defaultValues: { fromMonth: now.getMonth() + 1, fromYear: now.getFullYear(), toMonth: now.getMonth() + 1, toYear: now.getFullYear(), isPaid: false },
+  });
+
+  const subAccountForm = useForm<SubAccountFormData>({
+    resolver: zodResolver(subAccountSchema),
+    defaultValues: { interestRate: 10, startDate: new Date().toISOString().split("T")[0] },
   });
 
   const editForm = useForm<EditFormData>({
@@ -256,6 +277,35 @@ export default function BorrowerDetail() {
     });
   };
 
+  const handleAddSubAccount = (data: SubAccountFormData) => {
+    createSubAccount.mutate(
+      { id, data: { ...data, notes: data.notes || undefined } },
+      {
+        onSuccess: () => {
+          toast({ title: "Sub-account added", description: "New loan tranche created." });
+          queryClient.invalidateQueries({ queryKey: getListBorrowerSubAccountsQueryKey(id) });
+          setShowAddSubAccount(false);
+          subAccountForm.reset({ interestRate: 10, startDate: new Date().toISOString().split("T")[0] });
+        },
+        onError: () => toast({ title: "Error", description: "Failed to create sub-account.", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleMerge = () => {
+    mergeSubs.mutate({ id }, {
+      onSuccess: () => {
+        toast({ title: "Sub-accounts merged", description: "All tranches consolidated into this loan." });
+        queryClient.invalidateQueries({ queryKey: getGetBorrowerQueryKey(id) });
+        queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(id) });
+        queryClient.invalidateQueries({ queryKey: getListBorrowerSubAccountsQueryKey(id) });
+        queryClient.invalidateQueries({ queryKey: getListBorrowersQueryKey() });
+        setShowMergeConfirm(false);
+      },
+      onError: (err: any) => toast({ title: "Error", description: err?.message ?? "Merge failed.", variant: "destructive" }),
+    });
+  };
+
   if (borrowerLoading) {
     return (
       <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
@@ -378,6 +428,20 @@ export default function BorrowerDetail() {
         </Card>
       </div>
 
+      {/* Sub-account breadcrumb — shown when this borrower IS a sub-account */}
+      {borrower.parentId != null && (
+        <div className="flex items-center gap-2 px-1 -mt-2">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+            <Network className="h-3 w-3" />Sub-account
+          </span>
+          <Link href={`/borrowers/${borrower.parentId}`}>
+            <button className="text-xs text-violet-600 hover:underline flex items-center gap-1">
+              View parent loan <ExternalLink className="h-3 w-3" />
+            </button>
+          </Link>
+        </div>
+      )}
+
       {/* Loan Information */}
       <Card className="border-slate-200">
         <CardHeader className="pb-3 px-4 md:px-6">
@@ -395,6 +459,99 @@ export default function BorrowerDetail() {
           {borrower.notes && <div className="mt-4 pt-4 border-t border-slate-100"><p className="text-slate-400 text-xs mb-1">Notes</p><p className="text-slate-700 text-sm">{borrower.notes}</p></div>}
         </CardContent>
       </Card>
+
+      {/* Sub-accounts section — only for top-level borrowers */}
+      {borrower.parentId == null && (
+        <Card className="border-slate-200">
+          <CardHeader className="pb-3 px-4 md:px-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base font-semibold text-slate-900">Sub-accounts</CardTitle>
+                {(subAccounts?.length ?? 0) > 0 && (
+                  <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">
+                    {subAccounts!.length}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {(subAccounts?.length ?? 0) > 0 && (
+                  <Button size="sm" variant="outline" onClick={() => setShowMergeConfirm(true)} className="text-violet-700 border-violet-200 hover:bg-violet-50">
+                    <GitMerge className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Merge All</span>
+                    <span className="sm:hidden">Merge</span>
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setShowAddSubAccount(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Tranche
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="px-0 pb-0">
+            {!subAccounts || subAccounts.length === 0 ? (
+              <div className="px-4 md:px-6 pb-5 text-center">
+                <Network className="h-8 w-8 mx-auto text-slate-300 mb-2" />
+                <p className="text-sm text-slate-400">No sub-accounts yet.</p>
+                <p className="text-xs text-slate-400 mt-0.5">Use "Add Tranche" to record an additional loan top-up for this borrower.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[500px]">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50">
+                      <th className="text-left px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tranche</th>
+                      <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Principal</th>
+                      <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Rate</th>
+                      <th className="text-left px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Start Date</th>
+                      <th className="px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
+                      <th className="px-4 md:px-6 py-2.5"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {subAccounts.map(sub => (
+                      <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 md:px-6 py-3">
+                          <p className="font-medium text-slate-900">{sub.name}</p>
+                          {sub.notes && <p className="text-xs text-slate-400 truncate max-w-[180px]">{sub.notes}</p>}
+                          {sub.overdueCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium">
+                              <AlertTriangle className="h-3 w-3" />{sub.overdueCount} overdue
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 md:px-6 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">
+                          {formatCurrency(sub.principalAmount)}
+                        </td>
+                        <td className="px-4 md:px-6 py-3 text-right text-slate-600 whitespace-nowrap hidden sm:table-cell">
+                          {sub.interestRate}%
+                        </td>
+                        <td className="px-4 md:px-6 py-3 text-slate-600 whitespace-nowrap hidden md:table-cell text-sm">
+                          {sub.startDate}
+                        </td>
+                        <td className="px-4 md:px-6 py-3 hidden sm:table-cell">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                            sub.status === "active" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                            sub.status === "defaulted" ? "bg-red-50 text-red-700 border-red-200" :
+                            "bg-slate-100 text-slate-600 border-slate-200"
+                          }`}>{sub.status}</span>
+                        </td>
+                        <td className="px-4 md:px-6 py-3">
+                          <Link href={`/borrowers/${sub.id}`}>
+                            <button className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-900" title="View tranche detail">
+                              <ExternalLink className="h-4 w-4" />
+                            </button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Payment History / Schedule Tabs */}
       <Card className="border-slate-200">
@@ -647,6 +804,112 @@ export default function BorrowerDetail() {
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add Sub-account Dialog ── */}
+      <Dialog open={showAddSubAccount} onOpenChange={setShowAddSubAccount}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Loan Tranche</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500 -mt-1">
+            A new tranche is an additional top-up loan for <strong>{borrower.name}</strong>. It will be linked to this parent account and tracked separately.
+          </p>
+          <Form {...subAccountForm}>
+            <form onSubmit={subAccountForm.handleSubmit(handleAddSubAccount)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={subAccountForm.control} name="principalAmount" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Loan Amount (₹)</FormLabel>
+                    <FormControl><Input type="number" placeholder="50000" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={subAccountForm.control} name="interestRate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Interest Rate (%/mo)</FormLabel>
+                    <FormControl><Input type="number" step="0.5" placeholder="10" {...field} /></FormControl>
+                    {subAccountForm.watch("interestRate") > 10 && (
+                      <p className="text-xs text-emerald-600">Commission: {(subAccountForm.watch("interestRate") - 10).toFixed(1)}%</p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={subAccountForm.control} name="startDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={subAccountForm.control} name="tenure" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tenure (months)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="12"
+                        {...field}
+                        value={field.value ?? ""}
+                        onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={subAccountForm.control} name="notes" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Notes (optional)</FormLabel>
+                    <FormControl><Textarea placeholder="Purpose of this top-up, any conditions…" rows={2} {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => setShowAddSubAccount(false)}>Cancel</Button>
+                <Button type="submit" disabled={createSubAccount.isPending} className="bg-slate-900 hover:bg-slate-800">
+                  {createSubAccount.isPending ? "Adding…" : "Add Tranche"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Merge Sub-accounts Confirmation ── */}
+      <Dialog open={showMergeConfirm} onOpenChange={setShowMergeConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Merge All Sub-accounts?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              This will consolidate <strong>{subAccounts?.length ?? 0} sub-account{(subAccounts?.length ?? 0) !== 1 ? "s" : ""}</strong> into this loan:
+            </p>
+            <ul className="text-sm text-slate-600 space-y-1.5 pl-1">
+              {subAccounts?.map(s => (
+                <li key={s.id} className="flex items-center justify-between gap-2 bg-slate-50 rounded-md px-3 py-1.5 border border-slate-100">
+                  <span className="text-slate-700 font-medium truncate">{s.name}</span>
+                  <span className="text-slate-900 font-semibold whitespace-nowrap">{formatCurrency(s.principalAmount)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-700 space-y-1">
+              <p className="font-semibold">What happens:</p>
+              <p>• All outstanding principals are summed and set as this loan's new principal.</p>
+              <p>• All sub-account payment records are moved here.</p>
+              <p>• Sub-account records are permanently deleted.</p>
+              <p>• This loan's interest rate is unchanged.</p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowMergeConfirm(false)}>Cancel</Button>
+              <Button onClick={handleMerge} disabled={mergeSubs.isPending} className="bg-violet-600 hover:bg-violet-700 text-white">
+                <GitMerge className="h-4 w-4 mr-1.5" />
+                {mergeSubs.isPending ? "Merging…" : "Merge Sub-accounts"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

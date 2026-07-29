@@ -28,6 +28,7 @@ export * from './monthlyStats';
 export * from './payment';
 export * from './paymentInput';
 export * from './paymentUpdate';
+export * from './subAccountInput';
 export * from './user';
 export * from './userAdminUpdate';
 export * from './userAdminUpdateRole';

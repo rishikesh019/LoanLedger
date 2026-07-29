@@ -43,6 +43,11 @@ export interface Borrower {
   totalCommissionEarned?: number | null;
   /** @nullable */
   monthsElapsed?: number | null;
+  /**
+     * Parent borrower ID for sub-accounts; null for top-level borrowers
+     * @nullable
+     */
+  parentId?: number | null;
   /** Number of unpaid payments for past months */
   overdueCount: number;
   createdAt: Date;

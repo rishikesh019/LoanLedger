@@ -39,6 +39,7 @@ import type {
   Payment,
   PaymentInput,
   PaymentUpdate,
+  SubAccountInput,
   User,
   UserAdminUpdate,
   UserBalance,
@@ -954,6 +955,225 @@ export const useDeleteBorrower = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteBorrowerMutationOptions(options));
+    }
+
+export const getListBorrowerSubAccountsUrl = (id: number,) => {
+
+
+
+
+  return `/api/borrowers/${id}/sub-accounts`
+}
+
+/**
+ * @summary List sub-accounts of a parent borrower
+ */
+export const listBorrowerSubAccounts = async (id: number, options?: RequestInit): Promise<Borrower[]> => {
+
+  return customFetch<Borrower[]>(getListBorrowerSubAccountsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBorrowerSubAccountsQueryKey = (id: number,) => {
+    return [
+    `/api/borrowers/${id}/sub-accounts`
+    ] as const;
+    }
+
+
+export const getListBorrowerSubAccountsQueryOptions = <TData = Awaited<ReturnType<typeof listBorrowerSubAccounts>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBorrowerSubAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBorrowerSubAccountsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBorrowerSubAccounts>>> = ({ signal }) => listBorrowerSubAccounts(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBorrowerSubAccounts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBorrowerSubAccountsQueryResult = NonNullable<Awaited<ReturnType<typeof listBorrowerSubAccounts>>>
+export type ListBorrowerSubAccountsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List sub-accounts of a parent borrower
+ */
+
+export function useListBorrowerSubAccounts<TData = Awaited<ReturnType<typeof listBorrowerSubAccounts>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBorrowerSubAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBorrowerSubAccountsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateBorrowerSubAccountUrl = (id: number,) => {
+
+
+
+
+  return `/api/borrowers/${id}/sub-accounts`
+}
+
+/**
+ * @summary Create a sub-account (loan tranche) for a parent borrower
+ */
+export const createBorrowerSubAccount = async (id: number,
+    subAccountInput: SubAccountInput, options?: RequestInit): Promise<Borrower> => {
+
+  return customFetch<Borrower>(getCreateBorrowerSubAccountUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      subAccountInput,)
+  }
+);}
+
+
+
+
+export const getCreateBorrowerSubAccountMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBorrowerSubAccount>>, TError,{id: number;data: BodyType<SubAccountInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBorrowerSubAccount>>, TError,{id: number;data: BodyType<SubAccountInput>}, TContext> => {
+
+const mutationKey = ['createBorrowerSubAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBorrowerSubAccount>>, {id: number;data: BodyType<SubAccountInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createBorrowerSubAccount(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBorrowerSubAccountMutationResult = NonNullable<Awaited<ReturnType<typeof createBorrowerSubAccount>>>
+    export type CreateBorrowerSubAccountMutationBody = BodyType<SubAccountInput>
+    export type CreateBorrowerSubAccountMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a sub-account (loan tranche) for a parent borrower
+ */
+export const useCreateBorrowerSubAccount = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBorrowerSubAccount>>, TError,{id: number;data: BodyType<SubAccountInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBorrowerSubAccount>>,
+        TError,
+        {id: number;data: BodyType<SubAccountInput>},
+        TContext
+      > => {
+      return useMutation(getCreateBorrowerSubAccountMutationOptions(options));
+    }
+
+export const getMergeBorrowerSubAccountsUrl = (id: number,) => {
+
+
+
+
+  return `/api/borrowers/${id}/merge-sub-accounts`
+}
+
+/**
+ * @summary Merge all sub-accounts into the parent borrower
+ */
+export const mergeBorrowerSubAccounts = async (id: number, options?: RequestInit): Promise<Borrower> => {
+
+  return customFetch<Borrower>(getMergeBorrowerSubAccountsUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getMergeBorrowerSubAccountsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mergeBorrowerSubAccounts>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mergeBorrowerSubAccounts>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['mergeBorrowerSubAccounts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mergeBorrowerSubAccounts>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  mergeBorrowerSubAccounts(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MergeBorrowerSubAccountsMutationResult = NonNullable<Awaited<ReturnType<typeof mergeBorrowerSubAccounts>>>
+
+    export type MergeBorrowerSubAccountsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Merge all sub-accounts into the parent borrower
+ */
+export const useMergeBorrowerSubAccounts = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mergeBorrowerSubAccounts>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mergeBorrowerSubAccounts>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getMergeBorrowerSubAccountsMutationOptions(options));
     }
 
 export const getListPaymentsUrl = (borrowerId: number,) => {
