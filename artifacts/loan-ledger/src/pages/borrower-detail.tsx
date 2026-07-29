@@ -29,7 +29,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useSchedule } from "@/hooks/use-schedule";
 import { useSplitPreview } from "@/hooks/use-split-preview";
-import { printStatement } from "@/lib/print-statement";
+import { printStatement, printCombinedStatement } from "@/lib/print-statement";
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(amount);
@@ -404,6 +404,25 @@ export default function BorrowerDetail() {
             <Printer className="h-4 w-4 md:mr-1" />
             <span className="hidden md:inline">Statement</span>
           </Button>
+          {hasSubs && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-violet-700 border-violet-200 hover:bg-violet-50"
+              title="Print Combined Statement (all tranches)"
+              onClick={() =>
+                printCombinedStatement(
+                  borrower,
+                  payments ?? [],
+                  subAccounts ?? [],
+                  subPaymentQueries.map(q => q.data ?? []),
+                )
+              }
+            >
+              <Printer className="h-4 w-4 md:mr-1" />
+              <span className="hidden md:inline">Combined</span>
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={() => setShowEdit(true)} data-testid="button-edit-borrower">
             <Edit2 className="h-4 w-4 md:mr-1" />
             <span className="hidden md:inline">Edit</span>
