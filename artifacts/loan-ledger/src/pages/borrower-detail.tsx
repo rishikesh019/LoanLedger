@@ -5,8 +5,9 @@ import {
   useDeletePayment, useUpdateBorrower,
   useListBorrowerSubAccounts, useCreateBorrowerSubAccount, useMergeBorrowerSubAccounts,
   getGetBorrowerQueryKey, getListPaymentsQueryKey, getListBorrowersQueryKey, getListBorrowerSubAccountsQueryKey,
+  getListPaymentsQueryOptions,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQueries } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -110,6 +111,14 @@ export default function BorrowerDetail() {
   const { data: borrower, isLoading: borrowerLoading } = useGetBorrower(id, { query: { enabled: !!id, queryKey: getGetBorrowerQueryKey(id) } });
   const { data: payments, isLoading: paymentsLoading } = useListPayments(id, { query: { enabled: !!id, queryKey: getListPaymentsQueryKey(id) } });
   const { data: subAccounts } = useListBorrowerSubAccounts(id, { query: { enabled: !!id && !borrower?.parentId, queryKey: getListBorrowerSubAccountsQueryKey(id) } });
+
+  // Fetch payments for each sub-account in parallel
+  const subAccountIds = useMemo(() => subAccounts?.map(s => s.id) ?? [], [subAccounts]);
+  const subPaymentQueries = useQueries({
+    queries: subAccountIds.map(subId => getListPaymentsQueryOptions(subId)),
+  });
+  // subPaymentQueries[i].data corresponds to subAccountIds[i]
+
   const createPayment = useCreatePayment();
   const updatePayment = useUpdatePayment();
   const deletePayment = useDeletePayment();
@@ -342,6 +351,32 @@ export default function BorrowerDetail() {
   const principalReduced = totalPrincipalReduced > 0;
   const overdueCount = (payments ?? []).filter(p => !p.isPaid && (p.year * 12 + (p.month - 1) < now.getFullYear() * 12 + now.getMonth())).length;
 
+  // Combined payment stats across parent + all sub-accounts (only when subs exist)
+  const hasSubs = (subAccounts?.length ?? 0) > 0;
+  const allSubPaymentsLoaded = hasSubs && subPaymentQueries.every(q => q.data !== undefined);
+  // Computed inline (not memoized) so it always reflects latest query data
+  let combinedPaymentStats: {
+    combinedTotalPaid: number;
+    combinedTotalCommission: number;
+    combinedPaymentsCount: number;
+    combinedPaidCount: number;
+  } | null = null;
+  if (hasSubs) {
+    let combinedTotalPaid = totalPaid;
+    let combinedTotalCommission = totalCommission;
+    let combinedPaymentsCount = payments?.length ?? 0;
+    let combinedPaidCount = paidPayments.length;
+    for (const q of subPaymentQueries) {
+      const subPmts = q.data ?? [];
+      const subPaid = subPmts.filter(p => p.isPaid);
+      combinedTotalPaid += subPaid.reduce((s, p) => s + p.interestAmount, 0);
+      combinedTotalCommission += subPaid.reduce((s, p) => s + p.commissionAmount, 0);
+      combinedPaymentsCount += subPmts.length;
+      combinedPaidCount += subPaid.length;
+    }
+    combinedPaymentStats = { combinedTotalPaid, combinedTotalCommission, combinedPaymentsCount, combinedPaidCount };
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5" data-testid="borrower-detail-page">
       {/* Header */}
@@ -418,22 +453,40 @@ export default function BorrowerDetail() {
 
       {/* Summary Row */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="border-slate-200">
+        <Card className={`border-slate-200 ${combinedPaymentStats ? "border-t-2 border-t-violet-400" : ""}`}>
           <CardContent className="p-3 md:p-4 text-center">
-            <p className="text-xs text-slate-500 mb-1">Total Collected</p>
-            <p className="text-base md:text-lg font-bold text-slate-900">{formatCurrency(totalPaid)}</p>
+            <p className="text-xs text-slate-500 mb-1">
+              Total Collected{combinedPaymentStats ? <span className="text-violet-500 ml-1">(all tranches)</span> : null}
+            </p>
+            <p className="text-base md:text-lg font-bold text-slate-900">
+              {formatCurrency(combinedPaymentStats ? combinedPaymentStats.combinedTotalPaid : totalPaid)}
+            </p>
+            {combinedPaymentStats && !allSubPaymentsLoaded && (
+              <p className="text-xs text-slate-400 mt-0.5">loading…</p>
+            )}
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className={`border-slate-200 ${combinedPaymentStats ? "border-t-2 border-t-violet-400" : ""}`}>
           <CardContent className="p-3 md:p-4 text-center">
-            <p className="text-xs text-emerald-600 mb-1">Commission Earned</p>
-            <p className="text-base md:text-lg font-bold text-emerald-700">{formatCurrency(totalCommission)}</p>
+            <p className="text-xs text-emerald-600 mb-1">
+              Commission Earned{combinedPaymentStats ? <span className="text-violet-500 ml-1">(all tranches)</span> : null}
+            </p>
+            <p className="text-base md:text-lg font-bold text-emerald-700">
+              {formatCurrency(combinedPaymentStats ? combinedPaymentStats.combinedTotalCommission : totalCommission)}
+            </p>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className={`border-slate-200 ${combinedPaymentStats ? "border-t-2 border-t-violet-400" : ""}`}>
           <CardContent className="p-3 md:p-4 text-center">
-            <p className="text-xs text-slate-500 mb-1">Payments</p>
-            <p className="text-base md:text-lg font-bold text-slate-900">{payments?.length ?? 0} <span className="text-sm text-emerald-600">({paidPayments.length} paid)</span></p>
+            <p className="text-xs text-slate-500 mb-1">
+              Payments{combinedPaymentStats ? <span className="text-violet-500 ml-1">(all tranches)</span> : null}
+            </p>
+            <p className="text-base md:text-lg font-bold text-slate-900">
+              {combinedPaymentStats ? combinedPaymentStats.combinedPaymentsCount : (payments?.length ?? 0)}{" "}
+              <span className="text-sm text-emerald-600">
+                ({combinedPaymentStats ? combinedPaymentStats.combinedPaidCount : paidPayments.length} paid)
+              </span>
+            </p>
           </CardContent>
         </Card>
       </div>
