@@ -30,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSchedule } from "@/hooks/use-schedule";
 import { useSplitPreview } from "@/hooks/use-split-preview";
 import { printStatement, printCombinedStatement } from "@/lib/print-statement";
+import type { Payment } from "@workspace/api-client-react";
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(amount);
@@ -97,6 +98,7 @@ export default function BorrowerDetail() {
   const [, params] = useRoute("/borrowers/:id");
   const id = Number(params?.id);
   const [activeTab, setActiveTab] = useState<"history" | "schedule">("history");
+  const [historyView, setHistoryView] = useState<"single" | "all">("single");
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showBulkPayment, setShowBulkPayment] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -207,6 +209,25 @@ export default function BorrowerDetail() {
     }
     return { count: total - skipped, valid: true, skipped, total };
   }, [bulkFromMonth, bulkFromYear, bulkToMonth, bulkToYear, payments]);
+
+  // hasSubs — needed by mergedPayments hook below (must stay above early returns)
+  const hasSubs = (subAccounts?.length ?? 0) > 0;
+
+  // Merged payment list across parent + all sub-accounts (for "All Tranches" view)
+  // Declared here (above early returns) to satisfy React's Rules of Hooks
+  const mergedPayments = useMemo(() => {
+    if (!hasSubs) return null;
+    type MergedPayment = Payment & { trancheName: string };
+    const parentName = borrower?.name ?? "This Loan";
+    const rows: MergedPayment[] = (payments ?? []).map(p => ({ ...p, trancheName: parentName }));
+    subAccountIds.forEach((subId, i) => {
+      const sub = subAccounts?.find(s => s.id === subId);
+      const subPmts = subPaymentQueries[i].data ?? [];
+      subPmts.forEach(p => rows.push({ ...p, trancheName: sub?.name ?? `Tranche ${subId}` }));
+    });
+    rows.sort((a, b) => (b.year * 12 + b.month) - (a.year * 12 + a.month));
+    return rows;
+  }, [hasSubs, payments, borrower, subAccountIds, subAccounts, subPaymentQueries]);
 
   const handleAddPayment = (data: PaymentFormData) => {
     const amountPaid = data.amountPaid && data.amountPaid.trim() !== "" ? Number(data.amountPaid) : undefined;
@@ -352,7 +373,7 @@ export default function BorrowerDetail() {
   const overdueCount = (payments ?? []).filter(p => !p.isPaid && (p.year * 12 + (p.month - 1) < now.getFullYear() * 12 + now.getMonth())).length;
 
   // Combined payment stats across parent + all sub-accounts (only when subs exist)
-  const hasSubs = (subAccounts?.length ?? 0) > 0;
+  // hasSubs is declared above (before early returns) for hook ordering
   const allSubPaymentsLoaded = hasSubs && subPaymentQueries.every(q => q.data !== undefined);
   // Computed inline (not memoized) so it always reflects latest query data
   let combinedPaymentStats: {
@@ -693,23 +714,44 @@ export default function BorrowerDetail() {
             </button>
           </div>
           {activeTab === "history" && (
-            <div className="flex gap-2 pb-2">
-              <Button size="sm" variant="outline" onClick={() => setShowBulkPayment(true)} data-testid="button-bulk-payment">
-                <CalendarRange className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Bulk Record</span>
-                <span className="sm:hidden">Bulk</span>
-              </Button>
-              <Button size="sm" onClick={() => setShowAddPayment(true)} className="bg-slate-900 hover:bg-slate-800" data-testid="button-add-payment">
-                <Plus className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Record Payment</span>
-                <span className="sm:hidden">Record</span>
-              </Button>
+            <div className="flex items-center gap-2 pb-2">
+              {/* All Tranches toggle — only when sub-accounts exist */}
+              {hasSubs && (
+                <div className="flex rounded-md border border-slate-200 overflow-hidden text-xs">
+                  <button
+                    onClick={() => setHistoryView("single")}
+                    className={`px-2.5 py-1.5 font-medium transition-colors ${historyView === "single" ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}
+                  >
+                    This Loan
+                  </button>
+                  <button
+                    onClick={() => setHistoryView("all")}
+                    className={`px-2.5 py-1.5 font-medium transition-colors flex items-center gap-1 ${historyView === "all" ? "bg-violet-700 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}
+                  >
+                    <Network className="h-3 w-3" />All Tranches
+                  </button>
+                </div>
+              )}
+              {historyView === "single" && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => setShowBulkPayment(true)} data-testid="button-bulk-payment">
+                    <CalendarRange className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Bulk Record</span>
+                    <span className="sm:hidden">Bulk</span>
+                  </Button>
+                  <Button size="sm" onClick={() => setShowAddPayment(true)} className="bg-slate-900 hover:bg-slate-800" data-testid="button-add-payment">
+                    <Plus className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Record Payment</span>
+                    <span className="sm:hidden">Record</span>
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>
 
         {/* Payment History Tab */}
-        {activeTab === "history" && (
+        {activeTab === "history" && historyView === "single" && (
           <CardContent className="p-0">
             {paymentsLoading ? (
               <div className="p-4 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
@@ -764,6 +806,68 @@ export default function BorrowerDetail() {
                             <button onClick={() => handleDeletePayment(p.id)} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600" data-testid={`button-delete-payment-${p.id}`}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        )}
+
+        {/* All Tranches merged payment history */}
+        {activeTab === "history" && historyView === "all" && (
+          <CardContent className="p-0">
+            {!allSubPaymentsLoaded ? (
+              <div className="p-4 space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+            ) : !mergedPayments || mergedPayments.length === 0 ? (
+              <div className="py-10 text-center text-slate-400">
+                <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No payments recorded across any tranche yet.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-violet-50">
+                      <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-violet-600 uppercase tracking-wide">Tranche</th>
+                      <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-violet-600 uppercase tracking-wide">Period</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-violet-600 uppercase tracking-wide">Amount Paid</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-violet-600 uppercase tracking-wide hidden md:table-cell">Interest</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-violet-600 uppercase tracking-wide">Commission</th>
+                      <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-violet-600 uppercase tracking-wide hidden lg:table-cell">Principal ↓</th>
+                      <th className="px-4 md:px-6 py-3 text-xs font-semibold text-violet-600 uppercase tracking-wide">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {mergedPayments.map(p => {
+                      const isOverdue = !p.isPaid && (p.year * 12 + (p.month - 1) < now.getFullYear() * 12 + now.getMonth());
+                      return (
+                        <tr key={`${p.trancheName}-${p.id}`} className={`hover:bg-slate-50 ${isOverdue ? "bg-red-50/40" : ""}`}>
+                          <td className="px-4 md:px-6 py-3 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200 max-w-[140px] truncate">
+                              {p.trancheName}
+                            </span>
+                          </td>
+                          <td className="px-4 md:px-6 py-3 font-medium text-slate-900 whitespace-nowrap">
+                            {MONTHS[p.month - 1]} {p.year}
+                            {isOverdue && <span className="ml-1.5 text-red-500 text-xs">overdue</span>}
+                          </td>
+                          <td className="px-4 md:px-6 py-3 text-right whitespace-nowrap">
+                            {p.amountPaid != null ? <span className="text-slate-900 font-medium">{formatCurrency(p.amountPaid)}</span> : <span className="text-slate-400 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 md:px-6 py-3 text-right text-slate-600 whitespace-nowrap hidden md:table-cell">{formatCurrency(p.interestAmount)}</td>
+                          <td className="px-4 md:px-6 py-3 text-right text-emerald-600 font-medium whitespace-nowrap">{formatCurrency(p.commissionAmount)}</td>
+                          <td className="px-4 md:px-6 py-3 text-right hidden lg:table-cell">
+                            {(p.principalReduction ?? 0) > 0 ? <span className="text-blue-600 font-medium">−{formatCurrency(p.principalReduction!)}</span> : <span className="text-slate-300 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 md:px-6 py-3">
+                            <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full w-fit whitespace-nowrap ${p.isPaid ? "bg-emerald-50 text-emerald-700" : isOverdue ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"}`}>
+                              {p.isPaid ? <CheckCircle className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
+                              {p.isPaid ? "Paid" : isOverdue ? "Overdue" : "Pending"}
+                            </span>
                           </td>
                         </tr>
                       );
