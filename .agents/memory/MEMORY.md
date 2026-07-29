@@ -1,3 +1,4 @@
 - [Borrower privacy model](borrower-privacy.md) — borrowers are fully private per user; even admins only see their own. API enforces this at every route.
 - [Commission rate rule](commission-rule.md) — 10% base rate hardcoded; commissionRate = interestRate − 10, always recalculated on create/update.
 - [Clerk + Express quirk](clerk-express.md) — clerkClient in @clerk/express v2 is an object, not a function; call clerkClient.users.getUser() directly.
+- [Postgres numeric coercion](postgres-numeric-coercion.md) — Drizzle returns numeric/decimal columns as strings; response Zod schemas need zod.coerce.number(), not zod.number().

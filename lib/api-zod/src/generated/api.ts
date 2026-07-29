@@ -598,13 +598,14 @@ export const GetAdminDashboardResponse = zod.object({
 /**
  * @summary List fund transfers (admin sees all, user sees own)
  */
+// NOTE: Postgres numeric columns return as strings; coerce.number() handles this.
 export const ListFundsResponseItem = zod.object({
   "id": zod.number(),
   "adminId": zod.number(),
   "userId": zod.number(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
-  "amount": zod.number(),
+  "amount": zod.coerce.number(),
   "paymentMethod": zod.string(),
   "notes": zod.string().nullish(),
   "fundedAt": zod.coerce.date(),
@@ -654,7 +655,7 @@ export const UpdateFundResponse = zod.object({
   "userId": zod.number(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
-  "amount": zod.number(),
+  "amount": zod.coerce.number(),
   "paymentMethod": zod.string(),
   "notes": zod.string().nullish(),
   "fundedAt": zod.coerce.date(),
