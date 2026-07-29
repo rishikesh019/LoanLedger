@@ -742,6 +742,9 @@ components:
         overdueCount:
           type: integer
           description: Number of unpaid payments for past months
+        outstandingPrincipal:
+          type: number
+          description: Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)
         createdAt:
           type: string
           format: date-time

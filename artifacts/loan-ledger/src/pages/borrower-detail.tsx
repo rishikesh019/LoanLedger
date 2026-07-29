@@ -148,6 +148,16 @@ export default function BorrowerDetail() {
     } : undefined,
   });
 
+  // Combined totals across parent + all sub-accounts (only meaningful when subs exist)
+  const combinedTotals = useMemo(() => {
+    if (!subAccounts || subAccounts.length === 0) return null;
+    // Use outstandingPrincipal (post-payment) if available; fall back to principalAmount
+    const subOutstanding = subAccounts.reduce((s, a) => s + (a.outstandingPrincipal ?? a.principalAmount), 0);
+    const subMonthlyInterest = subAccounts.reduce((s, a) => s + ((a.outstandingPrincipal ?? a.principalAmount) * a.interestRate) / 100, 0);
+    const subCommission = subAccounts.reduce((s, a) => s + ((a.outstandingPrincipal ?? a.principalAmount) * a.commissionRate) / 100, 0);
+    return { subOutstanding, subMonthlyInterest, subCommission };
+  }, [subAccounts]);
+
   // Current outstanding principal
   const currentOutstanding = useMemo(() => {
     if (!payments || !borrower) return borrower ? borrower.principalAmount : 0;
@@ -551,6 +561,45 @@ export default function BorrowerDetail() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Combined totals bar — only when sub-accounts exist */}
+      {combinedTotals && borrower && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
+          <div className="flex items-center gap-2 mb-3">
+            <Network className="h-4 w-4 text-violet-600" />
+            <span className="text-sm font-semibold text-violet-800">Combined Totals (all tranches)</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-lg border border-violet-100 px-3 py-2.5">
+              <p className="text-xs text-violet-500 mb-1">Total Outstanding</p>
+              <p className="text-base font-bold text-violet-900">
+                {formatCurrency(currentOutstanding + combinedTotals.subOutstanding)}
+              </p>
+              <p className="text-xs text-violet-400 mt-0.5">
+                {formatCurrency(currentOutstanding)} + {formatCurrency(combinedTotals.subOutstanding)} subs
+              </p>
+            </div>
+            <div className="bg-white rounded-lg border border-violet-100 px-3 py-2.5">
+              <p className="text-xs text-violet-500 mb-1">Monthly Interest</p>
+              <p className="text-base font-bold text-violet-900">
+                {formatCurrency(
+                  (currentOutstanding * borrower.interestRate) / 100 + combinedTotals.subMonthlyInterest
+                )}
+              </p>
+              <p className="text-xs text-violet-400 mt-0.5">across all tranches</p>
+            </div>
+            <div className="bg-white rounded-lg border border-violet-100 px-3 py-2.5">
+              <p className="text-xs text-emerald-600 mb-1">Monthly Commission</p>
+              <p className="text-base font-bold text-emerald-700">
+                {formatCurrency(
+                  (currentOutstanding * borrower.commissionRate) / 100 + combinedTotals.subCommission
+                )}
+              </p>
+              <p className="text-xs text-emerald-400 mt-0.5">across all tranches</p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Payment History / Schedule Tabs */}

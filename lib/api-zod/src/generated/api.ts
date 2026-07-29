@@ -170,6 +170,7 @@ export const ListBorrowersResponse = zod.object({
   "monthsElapsed": zod.number().nullish(),
   "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.number().nullish().describe('Current outstanding principal after any principal reductions'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })),
@@ -230,6 +231,7 @@ export const GetBorrowerResponse = zod.object({
   "monthsElapsed": zod.number().nullish(),
   "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.number().nullish().describe('Current outstanding principal after any principal reductions'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })

@@ -117,6 +117,11 @@ export interface Borrower {
   parentId?: number | null;
   /** Number of unpaid payments for past months */
   overdueCount: number;
+  /**
+     * Current outstanding principal after any principal reductions
+     * @nullable
+     */
+  outstandingPrincipal?: number | null;
   createdAt: string;
   updatedAt?: string;
 }

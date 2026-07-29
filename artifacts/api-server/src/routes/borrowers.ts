@@ -52,12 +52,23 @@ async function enrichBorrower(rawBorrower: any) {
     !p.isPaid && (p.year * 12 + (p.month - 1) < currentYearMonth)
   ).length;
 
+  // Compute outstanding principal from the most recent payment that recorded it
+  const sortedPayments = [...payments].sort((a, b) => b.year * 12 + b.month - (a.year * 12 + a.month));
+  let outstandingPrincipal: number = b.principalAmount;
+  for (const p of sortedPayments) {
+    if (p.outstandingPrincipal != null) {
+      outstandingPrincipal = round2(Number(p.outstandingPrincipal));
+      break;
+    }
+  }
+
   return {
     ...b,
     totalInterestEarned: round2(totalInterestEarned),
     totalCommissionEarned: round2(totalCommissionEarned),
     monthsElapsed: Math.max(0, monthsElapsed),
     overdueCount,
+    outstandingPrincipal,
   };
 }
 
