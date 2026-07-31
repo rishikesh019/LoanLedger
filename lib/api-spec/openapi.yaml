@@ -587,6 +587,31 @@ paths:
         "204":
           description: Deleted
 
+  /admin/users/{id}/borrowers:
+    get:
+      operationId: getAdminUserBorrowers
+      tags: [users]
+      summary: Admin - list active borrowers for a specific lender user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active borrowers for the user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUserBorrower"
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
   /users/{id}/balance:
     get:
       operationId: getUserBalance
@@ -1216,6 +1241,23 @@ components:
           type: number
         available:
           type: number
+
+    # ── AdminUserBorrower ──────────────────────────────────────────────────────
+    AdminUserBorrower:
+      type: object
+      required: [id, name, principalAmount, interestRate, status]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        principalAmount:
+          type: number
+        interestRate:
+          type: number
+        status:
+          type: string
+          enum: [active, closed, defaulted]
 
     # ── BorrowerList ───────────────────────────────────────────────────────────
     BorrowerList:

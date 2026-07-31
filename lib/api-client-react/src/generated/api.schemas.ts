@@ -392,6 +392,23 @@ export interface UserBalance {
   available: number;
 }
 
+export type AdminUserBorrowerStatus = typeof AdminUserBorrowerStatus[keyof typeof AdminUserBorrowerStatus];
+
+
+export const AdminUserBorrowerStatus = {
+  active: 'active',
+  closed: 'closed',
+  defaulted: 'defaulted',
+} as const;
+
+export interface AdminUserBorrower {
+  id: number;
+  name: string;
+  principalAmount: number;
+  interestRate: number;
+  status: AdminUserBorrowerStatus;
+}
+
 export interface BorrowerList {
   data: Borrower[];
   /** Total matching borrowers */
@@ -446,5 +463,4 @@ export type GetYearlyStatsParams = {
  */
 userId?: number | null;
 };
-
 

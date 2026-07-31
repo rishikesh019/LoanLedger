@@ -20,7 +20,7 @@ export const HealthCheckResponse = zod.object({
  * @summary Get current user profile
  */
 export const GetMeResponse = zod.object({
-  "id": zod.number(),
+  "id": zod.coerce.number(),
   "clerkId": zod.string(),
   "email": zod.string(),
   "name": zod.string(),
@@ -41,7 +41,7 @@ export const UpdateMeBody = zod.object({
 })
 
 export const UpdateMeResponse = zod.object({
-  "id": zod.number(),
+  "id": zod.coerce.number(),
   "clerkId": zod.string(),
   "email": zod.string(),
   "name": zod.string(),
@@ -57,7 +57,7 @@ export const UpdateMeResponse = zod.object({
  * @summary Admin - list all users
  */
 export const ListUsersResponseItem = zod.object({
-  "id": zod.number(),
+  "id": zod.coerce.number(),
   "clerkId": zod.string(),
   "email": zod.string(),
   "name": zod.string(),
@@ -89,7 +89,7 @@ export const GetUserParams = zod.object({
 })
 
 export const GetUserResponse = zod.object({
-  "id": zod.number(),
+  "id": zod.coerce.number(),
   "clerkId": zod.string(),
   "email": zod.string(),
   "name": zod.string(),
@@ -116,7 +116,7 @@ export const UpdateUserBody = zod.object({
 })
 
 export const UpdateUserResponse = zod.object({
-  "id": zod.number(),
+  "id": zod.coerce.number(),
   "clerkId": zod.string(),
   "email": zod.string(),
   "name": zod.string(),
@@ -149,35 +149,35 @@ export const ListBorrowersQueryParams = zod.object({
 
 export const ListBorrowersResponse = zod.object({
   "data": zod.array(zod.object({
-  "id": zod.number(),
-  "userId": zod.number(),
+  "id": zod.coerce.number(),
+  "userId": zod.coerce.number(),
   "userName": zod.string().nullish(),
   "name": zod.string(),
   "address": zod.string(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
-  "principalAmount": zod.number().describe('Loan principal amount in currency units'),
-  "interestRate": zod.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
-  "baseInterestRate": zod.number().describe('Base interest rate, fixed at 10%'),
-  "commissionRate": zod.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
-  "tenure": zod.number().nullish().describe('Loan tenure in months (optional)'),
+  "principalAmount": zod.coerce.number().describe('Loan principal amount in currency units'),
+  "interestRate": zod.coerce.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
+  "baseInterestRate": zod.coerce.number().describe('Base interest rate, fixed at 10%'),
+  "commissionRate": zod.coerce.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
+  "tenure": zod.coerce.number().nullish().describe('Loan tenure in months (optional)'),
   "startDate": zod.coerce.date(),
   "endDate": zod.coerce.date().nullish(),
   "status": zod.enum(['active', 'closed', 'defaulted']),
   "notes": zod.string().nullish(),
-  "totalInterestEarned": zod.number().nullish(),
-  "totalCommissionEarned": zod.number().nullish(),
-  "monthsElapsed": zod.number().nullish(),
-  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
-  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
-  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
+  "totalInterestEarned": zod.coerce.number().nullish(),
+  "totalCommissionEarned": zod.coerce.number().nullish(),
+  "monthsElapsed": zod.coerce.number().nullish(),
+  "parentId": zod.coerce.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
+  "overdueCount": zod.coerce.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.coerce.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })),
-  "total": zod.number().describe('Total matching borrowers'),
-  "page": zod.number().describe('Current page (1-indexed)'),
-  "limit": zod.number().describe('Items per page'),
-  "totalPages": zod.number().describe('Total number of pages')
+  "total": zod.coerce.number().describe('Total matching borrowers'),
+  "page": zod.coerce.number().describe('Current page (1-indexed)'),
+  "limit": zod.coerce.number().describe('Items per page'),
+  "totalPages": zod.coerce.number().describe('Total number of pages')
 })
 
 
@@ -185,6 +185,7 @@ export const ListBorrowersResponse = zod.object({
  * @summary Create a new loan borrower
  */
 export const createBorrowerBodyInterestRateMin = 0;
+
 
 
 export const CreateBorrowerBody = zod.object({
@@ -209,28 +210,28 @@ export const GetBorrowerParams = zod.object({
 })
 
 export const GetBorrowerResponse = zod.object({
-  "id": zod.number(),
-  "userId": zod.number(),
+  "id": zod.coerce.number(),
+  "userId": zod.coerce.number(),
   "userName": zod.string().nullish(),
   "name": zod.string(),
   "address": zod.string(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
-  "principalAmount": zod.number().describe('Loan principal amount in currency units'),
-  "interestRate": zod.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
-  "baseInterestRate": zod.number().describe('Base interest rate, fixed at 10%'),
-  "commissionRate": zod.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
-  "tenure": zod.number().nullish().describe('Loan tenure in months (optional)'),
+  "principalAmount": zod.coerce.number().describe('Loan principal amount in currency units'),
+  "interestRate": zod.coerce.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
+  "baseInterestRate": zod.coerce.number().describe('Base interest rate, fixed at 10%'),
+  "commissionRate": zod.coerce.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
+  "tenure": zod.coerce.number().nullish().describe('Loan tenure in months (optional)'),
   "startDate": zod.coerce.date(),
   "endDate": zod.coerce.date().nullish(),
   "status": zod.enum(['active', 'closed', 'defaulted']),
   "notes": zod.string().nullish(),
-  "totalInterestEarned": zod.number().nullish(),
-  "totalCommissionEarned": zod.number().nullish(),
-  "monthsElapsed": zod.number().nullish(),
-  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
-  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
-  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
+  "totalInterestEarned": zod.coerce.number().nullish(),
+  "totalCommissionEarned": zod.coerce.number().nullish(),
+  "monthsElapsed": zod.coerce.number().nullish(),
+  "parentId": zod.coerce.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
+  "overdueCount": zod.coerce.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.coerce.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -256,28 +257,28 @@ export const UpdateBorrowerBody = zod.object({
 })
 
 export const UpdateBorrowerResponse = zod.object({
-  "id": zod.number(),
-  "userId": zod.number(),
+  "id": zod.coerce.number(),
+  "userId": zod.coerce.number(),
   "userName": zod.string().nullish(),
   "name": zod.string(),
   "address": zod.string(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
-  "principalAmount": zod.number().describe('Loan principal amount in currency units'),
-  "interestRate": zod.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
-  "baseInterestRate": zod.number().describe('Base interest rate, fixed at 10%'),
-  "commissionRate": zod.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
-  "tenure": zod.number().nullish().describe('Loan tenure in months (optional)'),
+  "principalAmount": zod.coerce.number().describe('Loan principal amount in currency units'),
+  "interestRate": zod.coerce.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
+  "baseInterestRate": zod.coerce.number().describe('Base interest rate, fixed at 10%'),
+  "commissionRate": zod.coerce.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
+  "tenure": zod.coerce.number().nullish().describe('Loan tenure in months (optional)'),
   "startDate": zod.coerce.date(),
   "endDate": zod.coerce.date().nullish(),
   "status": zod.enum(['active', 'closed', 'defaulted']),
   "notes": zod.string().nullish(),
-  "totalInterestEarned": zod.number().nullish(),
-  "totalCommissionEarned": zod.number().nullish(),
-  "monthsElapsed": zod.number().nullish(),
-  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
-  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
-  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
+  "totalInterestEarned": zod.coerce.number().nullish(),
+  "totalCommissionEarned": zod.coerce.number().nullish(),
+  "monthsElapsed": zod.coerce.number().nullish(),
+  "parentId": zod.coerce.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
+  "overdueCount": zod.coerce.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.coerce.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -299,28 +300,28 @@ export const ListBorrowerSubAccountsParams = zod.object({
 })
 
 export const ListBorrowerSubAccountsResponseItem = zod.object({
-  "id": zod.number(),
-  "userId": zod.number(),
+  "id": zod.coerce.number(),
+  "userId": zod.coerce.number(),
   "userName": zod.string().nullish(),
   "name": zod.string(),
   "address": zod.string(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
-  "principalAmount": zod.number().describe('Loan principal amount in currency units'),
-  "interestRate": zod.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
-  "baseInterestRate": zod.number().describe('Base interest rate, fixed at 10%'),
-  "commissionRate": zod.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
-  "tenure": zod.number().nullish().describe('Loan tenure in months (optional)'),
+  "principalAmount": zod.coerce.number().describe('Loan principal amount in currency units'),
+  "interestRate": zod.coerce.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
+  "baseInterestRate": zod.coerce.number().describe('Base interest rate, fixed at 10%'),
+  "commissionRate": zod.coerce.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
+  "tenure": zod.coerce.number().nullish().describe('Loan tenure in months (optional)'),
   "startDate": zod.coerce.date(),
   "endDate": zod.coerce.date().nullish(),
   "status": zod.enum(['active', 'closed', 'defaulted']),
   "notes": zod.string().nullish(),
-  "totalInterestEarned": zod.number().nullish(),
-  "totalCommissionEarned": zod.number().nullish(),
-  "monthsElapsed": zod.number().nullish(),
-  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
-  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
-  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
+  "totalInterestEarned": zod.coerce.number().nullish(),
+  "totalCommissionEarned": zod.coerce.number().nullish(),
+  "monthsElapsed": zod.coerce.number().nullish(),
+  "parentId": zod.coerce.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
+  "overdueCount": zod.coerce.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.coerce.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -335,6 +336,7 @@ export const CreateBorrowerSubAccountParams = zod.object({
 })
 
 export const createBorrowerSubAccountBodyInterestRateMin = 0;
+
 
 
 export const CreateBorrowerSubAccountBody = zod.object({
@@ -354,28 +356,28 @@ export const MergeBorrowerSubAccountsParams = zod.object({
 })
 
 export const MergeBorrowerSubAccountsResponse = zod.object({
-  "id": zod.number(),
-  "userId": zod.number(),
+  "id": zod.coerce.number(),
+  "userId": zod.coerce.number(),
   "userName": zod.string().nullish(),
   "name": zod.string(),
   "address": zod.string(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
-  "principalAmount": zod.number().describe('Loan principal amount in currency units'),
-  "interestRate": zod.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
-  "baseInterestRate": zod.number().describe('Base interest rate, fixed at 10%'),
-  "commissionRate": zod.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
-  "tenure": zod.number().nullish().describe('Loan tenure in months (optional)'),
+  "principalAmount": zod.coerce.number().describe('Loan principal amount in currency units'),
+  "interestRate": zod.coerce.number().describe('Total monthly interest rate as percentage (e.g. 15 = 15%)'),
+  "baseInterestRate": zod.coerce.number().describe('Base interest rate, fixed at 10%'),
+  "commissionRate": zod.coerce.number().describe('Commission = interestRate - baseInterestRate (e.g. 5% if rate=15%)'),
+  "tenure": zod.coerce.number().nullish().describe('Loan tenure in months (optional)'),
   "startDate": zod.coerce.date(),
   "endDate": zod.coerce.date().nullish(),
   "status": zod.enum(['active', 'closed', 'defaulted']),
   "notes": zod.string().nullish(),
-  "totalInterestEarned": zod.number().nullish(),
-  "totalCommissionEarned": zod.number().nullish(),
-  "monthsElapsed": zod.number().nullish(),
-  "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
-  "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
-  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
+  "totalInterestEarned": zod.coerce.number().nullish(),
+  "totalCommissionEarned": zod.coerce.number().nullish(),
+  "monthsElapsed": zod.coerce.number().nullish(),
+  "parentId": zod.coerce.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
+  "overdueCount": zod.coerce.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.coerce.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -393,20 +395,20 @@ export const listPaymentsResponseMonthMax = 12;
 export const listPaymentsResponsePrincipalReductionDefault = 0;
 
 export const ListPaymentsResponseItem = zod.object({
-  "id": zod.number(),
-  "borrowerId": zod.number(),
-  "month": zod.number().min(1).max(listPaymentsResponseMonthMax),
-  "year": zod.number(),
-  "principalAmount": zod.number().describe('Outstanding principal at the time of this payment'),
-  "interestRate": zod.number(),
-  "baseInterestRate": zod.number(),
-  "commissionRate": zod.number(),
-  "interestAmount": zod.number().describe('Interest amount due (outstandingPrincipal \* interestRate \/ 100)'),
-  "baseInterestAmount": zod.number().describe('Base interest portion (outstandingPrincipal \* 10 \/ 100)'),
-  "commissionAmount": zod.number().describe('Commission portion (outstandingPrincipal \* commissionRate \/ 100)'),
-  "amountPaid": zod.number().nullish().describe('Actual amount paid by borrower (may exceed interest, surplus reduces principal)'),
-  "principalReduction": zod.number().default(listPaymentsResponsePrincipalReductionDefault).describe('Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount)'),
-  "outstandingPrincipal": zod.number().nullish().describe('Remaining outstanding principal after this payment'),
+  "id": zod.coerce.number(),
+  "borrowerId": zod.coerce.number(),
+  "month": zod.coerce.number().min(1).max(listPaymentsResponseMonthMax),
+  "year": zod.coerce.number(),
+  "principalAmount": zod.coerce.number().describe('Outstanding principal at the time of this payment'),
+  "interestRate": zod.coerce.number(),
+  "baseInterestRate": zod.coerce.number(),
+  "commissionRate": zod.coerce.number(),
+  "interestAmount": zod.coerce.number().describe('Interest amount due (outstandingPrincipal \* interestRate \/ 100)'),
+  "baseInterestAmount": zod.coerce.number().describe('Base interest portion (outstandingPrincipal \* 10 \/ 100)'),
+  "commissionAmount": zod.coerce.number().describe('Commission portion (outstandingPrincipal \* commissionRate \/ 100)'),
+  "amountPaid": zod.coerce.number().nullish().describe('Actual amount paid by borrower (may exceed interest, surplus reduces principal)'),
+  "principalReduction": zod.coerce.number().default(listPaymentsResponsePrincipalReductionDefault).describe('Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount)'),
+  "outstandingPrincipal": zod.coerce.number().nullish().describe('Remaining outstanding principal after this payment'),
   "isPaid": zod.boolean(),
   "paidDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
@@ -423,6 +425,7 @@ export const CreatePaymentParams = zod.object({
 })
 
 export const createPaymentBodyMonthMax = 12;
+
 
 
 export const CreatePaymentBody = zod.object({
@@ -454,20 +457,20 @@ export const updatePaymentResponseMonthMax = 12;
 export const updatePaymentResponsePrincipalReductionDefault = 0;
 
 export const UpdatePaymentResponse = zod.object({
-  "id": zod.number(),
-  "borrowerId": zod.number(),
-  "month": zod.number().min(1).max(updatePaymentResponseMonthMax),
-  "year": zod.number(),
-  "principalAmount": zod.number().describe('Outstanding principal at the time of this payment'),
-  "interestRate": zod.number(),
-  "baseInterestRate": zod.number(),
-  "commissionRate": zod.number(),
-  "interestAmount": zod.number().describe('Interest amount due (outstandingPrincipal \* interestRate \/ 100)'),
-  "baseInterestAmount": zod.number().describe('Base interest portion (outstandingPrincipal \* 10 \/ 100)'),
-  "commissionAmount": zod.number().describe('Commission portion (outstandingPrincipal \* commissionRate \/ 100)'),
-  "amountPaid": zod.number().nullish().describe('Actual amount paid by borrower (may exceed interest, surplus reduces principal)'),
-  "principalReduction": zod.number().default(updatePaymentResponsePrincipalReductionDefault).describe('Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount)'),
-  "outstandingPrincipal": zod.number().nullish().describe('Remaining outstanding principal after this payment'),
+  "id": zod.coerce.number(),
+  "borrowerId": zod.coerce.number(),
+  "month": zod.coerce.number().min(1).max(updatePaymentResponseMonthMax),
+  "year": zod.coerce.number(),
+  "principalAmount": zod.coerce.number().describe('Outstanding principal at the time of this payment'),
+  "interestRate": zod.coerce.number(),
+  "baseInterestRate": zod.coerce.number(),
+  "commissionRate": zod.coerce.number(),
+  "interestAmount": zod.coerce.number().describe('Interest amount due (outstandingPrincipal \* interestRate \/ 100)'),
+  "baseInterestAmount": zod.coerce.number().describe('Base interest portion (outstandingPrincipal \* 10 \/ 100)'),
+  "commissionAmount": zod.coerce.number().describe('Commission portion (outstandingPrincipal \* commissionRate \/ 100)'),
+  "amountPaid": zod.coerce.number().nullish().describe('Actual amount paid by borrower (may exceed interest, surplus reduces principal)'),
+  "principalReduction": zod.coerce.number().default(updatePaymentResponsePrincipalReductionDefault).describe('Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount)'),
+  "outstandingPrincipal": zod.coerce.number().nullish().describe('Remaining outstanding principal after this payment'),
   "isPaid": zod.boolean(),
   "paidDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
@@ -488,18 +491,18 @@ export const DeletePaymentParams = zod.object({
  * @summary Current user dashboard summary stats
  */
 export const GetDashboardStatsResponse = zod.object({
-  "totalBorrowers": zod.number(),
-  "activeBorrowers": zod.number(),
-  "closedBorrowers": zod.number().optional(),
-  "defaultedBorrowers": zod.number().optional(),
-  "totalPrincipal": zod.number(),
-  "totalInterestEarned": zod.number(),
-  "totalCommissionEarned": zod.number(),
-  "totalBaseInterestEarned": zod.number(),
-  "pendingPaymentsCount": zod.number(),
-  "currentMonthInterest": zod.number(),
-  "currentMonthCommission": zod.number(),
-  "currentMonthBaseInterest": zod.number().optional()
+  "totalBorrowers": zod.coerce.number(),
+  "activeBorrowers": zod.coerce.number(),
+  "closedBorrowers": zod.coerce.number().optional(),
+  "defaultedBorrowers": zod.coerce.number().optional(),
+  "totalPrincipal": zod.coerce.number(),
+  "totalInterestEarned": zod.coerce.number(),
+  "totalCommissionEarned": zod.coerce.number(),
+  "totalBaseInterestEarned": zod.coerce.number(),
+  "pendingPaymentsCount": zod.coerce.number(),
+  "currentMonthInterest": zod.coerce.number(),
+  "currentMonthCommission": zod.coerce.number(),
+  "currentMonthBaseInterest": zod.coerce.number().optional()
 })
 
 
@@ -512,14 +515,14 @@ export const GetMonthlyStatsQueryParams = zod.object({
 })
 
 export const GetMonthlyStatsResponseItem = zod.object({
-  "month": zod.number(),
-  "year": zod.number(),
-  "totalInterest": zod.number(),
-  "baseInterest": zod.number(),
-  "commission": zod.number(),
-  "paymentsCount": zod.number(),
-  "paidCount": zod.number(),
-  "principalOutstanding": zod.number().nullish()
+  "month": zod.coerce.number(),
+  "year": zod.coerce.number(),
+  "totalInterest": zod.coerce.number(),
+  "baseInterest": zod.coerce.number(),
+  "commission": zod.coerce.number(),
+  "paymentsCount": zod.coerce.number(),
+  "paidCount": zod.coerce.number(),
+  "principalOutstanding": zod.coerce.number().nullish()
 })
 export const GetMonthlyStatsResponse = zod.array(GetMonthlyStatsResponseItem)
 
@@ -532,12 +535,12 @@ export const GetYearlyStatsQueryParams = zod.object({
 })
 
 export const GetYearlyStatsResponseItem = zod.object({
-  "year": zod.number(),
-  "totalInterest": zod.number(),
-  "baseInterest": zod.number(),
-  "commission": zod.number(),
-  "paymentsCount": zod.number(),
-  "paidCount": zod.number()
+  "year": zod.coerce.number(),
+  "totalInterest": zod.coerce.number(),
+  "baseInterest": zod.coerce.number(),
+  "commission": zod.coerce.number(),
+  "paymentsCount": zod.coerce.number(),
+  "paidCount": zod.coerce.number()
 })
 export const GetYearlyStatsResponse = zod.array(GetYearlyStatsResponseItem)
 
@@ -546,15 +549,15 @@ export const GetYearlyStatsResponse = zod.array(GetYearlyStatsResponseItem)
  * @summary Admin - per-user interest and commission breakdown
  */
 export const GetUserStatsResponseItem = zod.object({
-  "userId": zod.number(),
+  "userId": zod.coerce.number(),
   "userName": zod.string(),
   "userEmail": zod.string().optional(),
-  "totalBorrowers": zod.number(),
-  "activeBorrowers": zod.number().optional(),
-  "totalPrincipal": zod.number(),
-  "totalInterest": zod.number(),
-  "totalBaseInterest": zod.number(),
-  "totalCommission": zod.number()
+  "totalBorrowers": zod.coerce.number(),
+  "activeBorrowers": zod.coerce.number().optional(),
+  "totalPrincipal": zod.coerce.number(),
+  "totalInterest": zod.coerce.number(),
+  "totalBaseInterest": zod.coerce.number(),
+  "totalCommission": zod.coerce.number()
 })
 export const GetUserStatsResponse = zod.array(GetUserStatsResponseItem)
 
@@ -563,58 +566,59 @@ export const GetUserStatsResponse = zod.array(GetUserStatsResponseItem)
  * @summary Admin dashboard - overview of all loans, users, cashflow
  */
 export const GetAdminDashboardResponse = zod.object({
-  "totalUsers": zod.number(),
-  "activeUsers": zod.number(),
-  "totalBorrowers": zod.number(),
-  "activeBorrowers": zod.number(),
-  "totalPrincipalDeployed": zod.number(),
-  "totalInterestEarned": zod.number(),
-  "totalBaseInterestEarned": zod.number(),
-  "totalCommissionEarned": zod.number(),
+  "totalUsers": zod.coerce.number(),
+  "activeUsers": zod.coerce.number(),
+  "totalBorrowers": zod.coerce.number(),
+  "activeBorrowers": zod.coerce.number(),
+  "totalPrincipalDeployed": zod.coerce.number(),
+  "totalInterestEarned": zod.coerce.number(),
+  "totalBaseInterestEarned": zod.coerce.number(),
+  "totalCommissionEarned": zod.coerce.number(),
   "monthlyTrend": zod.array(zod.object({
-  "month": zod.number(),
-  "year": zod.number(),
-  "totalInterest": zod.number(),
-  "baseInterest": zod.number(),
-  "commission": zod.number(),
-  "paymentsCount": zod.number(),
-  "paidCount": zod.number(),
-  "principalOutstanding": zod.number().nullish()
+  "month": zod.coerce.number(),
+  "year": zod.coerce.number(),
+  "totalInterest": zod.coerce.number(),
+  "baseInterest": zod.coerce.number(),
+  "commission": zod.coerce.number(),
+  "paymentsCount": zod.coerce.number(),
+  "paidCount": zod.coerce.number(),
+  "principalOutstanding": zod.coerce.number().nullish()
 })),
   "topPerformers": zod.array(zod.object({
-  "userId": zod.number(),
+  "userId": zod.coerce.number(),
   "userName": zod.string(),
   "userEmail": zod.string().optional(),
-  "totalBorrowers": zod.number(),
-  "activeBorrowers": zod.number().optional(),
-  "totalPrincipal": zod.number(),
-  "totalInterest": zod.number(),
-  "totalBaseInterest": zod.number(),
-  "totalCommission": zod.number()
+  "totalBorrowers": zod.coerce.number(),
+  "activeBorrowers": zod.coerce.number().optional(),
+  "totalPrincipal": zod.coerce.number(),
+  "totalInterest": zod.coerce.number(),
+  "totalBaseInterest": zod.coerce.number(),
+  "totalCommission": zod.coerce.number()
 }))
 })
+
 
 /**
  * @summary Admin - fund transfer analytics (capital deployed, idle, at-risk, monthly inflows)
  */
 export const GetFundAnalyticsResponse = zod.object({
-  "totalFunded": zod.number().describe('Sum of all fund transfers ever recorded'),
-  "totalDisbursed": zod.number().describe('Sum of principal for all active borrowers across all lenders'),
-  "totalAvailable": zod.number().describe('totalFunded minus totalDisbursed'),
-  "atRisk": zod.number().describe('Principal tied to borrowers that have at least one overdue payment'),
-  "utilizationRate": zod.number().describe('Percentage of funded capital currently disbursed (0-100)'),
+  "totalFunded": zod.coerce.number().describe('Sum of all fund transfers ever recorded'),
+  "totalDisbursed": zod.coerce.number().describe('Sum of principal for all active borrowers across all lenders'),
+  "totalAvailable": zod.coerce.number().describe('totalFunded minus totalDisbursed'),
+  "atRisk": zod.coerce.number().describe('Principal tied to borrowers that have at least one overdue payment'),
+  "utilizationRate": zod.coerce.number().describe('Percentage of funded capital currently disbursed (0-100)'),
   "monthlyInflows": zod.array(zod.object({
-  "year": zod.number(),
-  "month": zod.number(),
+  "year": zod.coerce.number(),
+  "month": zod.coerce.number(),
   "label": zod.string().describe('Human-readable label e.g. \"Jan 2026\"'),
-  "amount": zod.number(),
-  "count": zod.number()
+  "amount": zod.coerce.number(),
+  "count": zod.coerce.number()
 })),
   "paymentMethodBreakdown": zod.array(zod.object({
   "method": zod.string(),
   "label": zod.string(),
-  "amount": zod.number(),
-  "count": zod.number()
+  "amount": zod.coerce.number(),
+  "count": zod.coerce.number()
 }))
 })
 
@@ -622,11 +626,10 @@ export const GetFundAnalyticsResponse = zod.object({
 /**
  * @summary List fund transfers (admin sees all, user sees own)
  */
-// NOTE: Postgres numeric columns return as strings; coerce.number() handles this.
 export const ListFundsResponseItem = zod.object({
-  "id": zod.number(),
-  "adminId": zod.number(),
-  "userId": zod.number(),
+  "id": zod.coerce.number(),
+  "adminId": zod.coerce.number(),
+  "userId": zod.coerce.number(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
   "amount": zod.coerce.number(),
@@ -665,6 +668,7 @@ export const UpdateFundParams = zod.object({
 export const updateFundBodyAmountMin = 0.01;
 
 
+
 export const UpdateFundBody = zod.object({
   "amount": zod.number().min(updateFundBodyAmountMin).optional(),
   "paymentMethod": zod.string().optional(),
@@ -673,9 +677,9 @@ export const UpdateFundBody = zod.object({
 })
 
 export const UpdateFundResponse = zod.object({
-  "id": zod.number(),
-  "adminId": zod.number(),
-  "userId": zod.number(),
+  "id": zod.coerce.number(),
+  "adminId": zod.coerce.number(),
+  "userId": zod.coerce.number(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
   "amount": zod.coerce.number(),
@@ -696,6 +700,23 @@ export const DeleteFundParams = zod.object({
 
 
 /**
+ * @summary Admin - list active borrowers for a specific lender user
+ */
+export const GetAdminUserBorrowersParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAdminUserBorrowersResponseItem = zod.object({
+  "id": zod.coerce.number(),
+  "name": zod.string(),
+  "principalAmount": zod.coerce.number(),
+  "interestRate": zod.coerce.number(),
+  "status": zod.enum(['active', 'closed', 'defaulted'])
+})
+export const GetAdminUserBorrowersResponse = zod.array(GetAdminUserBorrowersResponseItem)
+
+
+/**
  * @summary Get funded vs disbursed balance for a user
  */
 export const GetUserBalanceParams = zod.object({
@@ -703,10 +724,10 @@ export const GetUserBalanceParams = zod.object({
 })
 
 export const GetUserBalanceResponse = zod.object({
-  "userId": zod.number(),
-  "totalFunded": zod.number(),
-  "totalDisbursed": zod.number(),
-  "available": zod.number()
+  "userId": zod.coerce.number(),
+  "totalFunded": zod.coerce.number(),
+  "totalDisbursed": zod.coerce.number(),
+  "available": zod.coerce.number()
 })
 
 
@@ -714,19 +735,20 @@ export const GetUserBalanceResponse = zod.object({
  * @summary Current month payment collection status per borrower
  */
 export const GetCurrentMonthCollectionsResponseItem = zod.object({
-  "borrowerId": zod.number(),
+  "borrowerId": zod.coerce.number(),
   "borrowerName": zod.string(),
   "phone": zod.string().nullish(),
   "startDate": zod.string().optional().describe('Date the loan was issued (YYYY-MM-DD)'),
-  "principalAmount": zod.number(),
-  "outstandingPrincipal": zod.number(),
-  "interestRate": zod.number(),
-  "interestDue": zod.number().describe('Expected interest for current month based on outstanding principal'),
-  "overdueCount": zod.number(),
+  "principalAmount": zod.coerce.number(),
+  "outstandingPrincipal": zod.coerce.number(),
+  "interestRate": zod.coerce.number(),
+  "interestDue": zod.coerce.number().describe('Expected interest for current month based on outstanding principal'),
+  "overdueCount": zod.coerce.number(),
   "hasPaymentRecord": zod.boolean(),
-  "paymentId": zod.number().nullish(),
+  "paymentId": zod.coerce.number().nullish(),
   "isPaid": zod.boolean(),
-  "amountPaid": zod.number().nullish()
+  "amountPaid": zod.coerce.number().nullish()
 })
 export const GetCurrentMonthCollectionsResponse = zod.array(GetCurrentMonthCollectionsResponseItem)
+
 

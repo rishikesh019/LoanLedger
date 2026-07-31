@@ -7,6 +7,8 @@
  */
 
 export * from './adminDashboard';
+export * from './adminUserBorrower';
+export * from './adminUserBorrowerStatus';
 export * from './borrower';
 export * from './borrowerInput';
 export * from './borrowerList';

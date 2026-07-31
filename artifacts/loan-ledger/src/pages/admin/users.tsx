@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import {
   useListUsers, useCreateUser, useUpdateUser, getListUsersQueryKey,
-  getGetUserBalanceQueryOptions,
+  getGetUserBalanceQueryOptions, useGetAdminUserBorrowers,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Shield, User, Mail, Phone, Search, ChevronDown, ChevronRight, IndianRupee, Wallet, TrendingUp } from "lucide-react";
+import { Plus, Shield, User, Mail, Phone, Search, ChevronDown, ChevronRight, IndianRupee, Wallet, TrendingUp, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const createUserSchema = z.object({
@@ -29,6 +30,12 @@ type CreateUserData = z.infer<typeof createUserSchema>;
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+
+const ALLOCATION_COLORS = [
+  "bg-blue-500", "bg-violet-500", "bg-amber-500",
+  "bg-rose-500", "bg-cyan-500", "bg-emerald-500",
+  "bg-orange-500", "bg-pink-500",
+];
 
 function utilizationColor(rate: number): string {
   if (rate >= 90) return "bg-red-500";
@@ -65,6 +72,8 @@ function ExpandedBalanceDetail({ userId, balanceData }: {
   userId: number;
   balanceData: { totalFunded: number; totalDisbursed: number; available: number } | undefined;
 }) {
+  const { data: borrowers, isLoading: borrowersLoading } = useGetAdminUserBorrowers(userId);
+
   if (!balanceData) {
     return (
       <div className="px-6 pb-4 pt-1">
@@ -114,6 +123,121 @@ function ExpandedBalanceDetail({ userId, balanceData }: {
           </span>
         </div>
       )}
+
+      {/* Fund allocation breakdown */}
+      <div className="mt-4">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Capital Allocation</p>
+        {borrowersLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+          </div>
+        ) : !borrowers || borrowers.length === 0 ? (
+          <p className="text-xs text-slate-400 italic py-2">No active borrowers — all capital is idle</p>
+        ) : (
+          <>
+            {/* Stacked allocation bar */}
+            {totalFunded > 0 && (() => {
+              const totalDeployed = borrowers.reduce((s, b) => s + b.principalAmount, 0);
+              const idle = Math.max(0, totalFunded - totalDeployed);
+              const segments = borrowers.map((b, i) => ({
+                pct: (b.principalAmount / totalFunded) * 100,
+                color: ALLOCATION_COLORS[i % ALLOCATION_COLORS.length],
+              }));
+              const idlePct = (idle / totalFunded) * 100;
+              return (
+                <div className="mb-3">
+                  <div className="flex h-3 rounded-full overflow-hidden bg-slate-100 gap-px">
+                    {segments.map((s, i) => (
+                      <div key={i} style={{ width: `${Math.min(s.pct, 100)}%` }} className={`${s.color} transition-all`} />
+                    ))}
+                    {idlePct > 0 && (
+                      <div style={{ width: `${idlePct}%` }} className="bg-slate-200" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                    {borrowers.map((b, i) => (
+                      <span key={b.id} className="flex items-center gap-1 text-xs text-slate-500">
+                        <span className={`inline-block h-2 w-2 rounded-full ${ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]}`} />
+                        {b.name.length > 12 ? b.name.slice(0, 12) + "…" : b.name}
+                      </span>
+                    ))}
+                    {idlePct > 0 && (
+                      <span className="flex items-center gap-1 text-xs text-slate-400">
+                        <span className="inline-block h-2 w-2 rounded-full bg-slate-200" />
+                        Idle
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Per-borrower rows */}
+            <div className="rounded-lg border border-slate-200 overflow-hidden bg-white divide-y divide-slate-100">
+              {borrowers.map((b, i) => {
+                const pct = totalFunded > 0 ? (b.principalAmount / totalFunded) * 100 : 0;
+                return (
+                  <div key={b.id} className="px-3 py-2.5 gap-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className={`inline-block h-2 w-2 rounded-full flex-shrink-0 ${ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]}`} />
+                        <p className="text-sm font-medium text-slate-800 truncate">{b.name}</p>
+                        <span className="text-xs text-slate-400 flex-shrink-0">{b.interestRate}% / mo</span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <p className="text-sm font-semibold text-slate-900 tabular-nums">{fmt(b.principalAmount)}</p>
+                        <Link
+                          href={`/borrowers/${b.id}`}
+                          onClick={e => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          View <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      </div>
+                    </div>
+                    {totalFunded > 0 && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1 rounded-full bg-slate-100 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${ALLOCATION_COLORS[i % ALLOCATION_COLORS.length]}`}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs tabular-nums text-slate-400 w-9 text-right">{pct.toFixed(0)}%</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Idle capital row */}
+              {totalFunded > 0 && (() => {
+                const totalDeployed = borrowers.reduce((s, b) => s + b.principalAmount, 0);
+                const idle = totalFunded - totalDeployed;
+                if (idle <= 0) return null;
+                const idlePct = (idle / totalFunded) * 100;
+                return (
+                  <div className="px-3 py-2.5 bg-slate-50">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block h-2 w-2 rounded-full flex-shrink-0 bg-slate-300" />
+                        <p className="text-xs text-slate-400 italic">Available / Idle</p>
+                      </div>
+                      <p className="text-sm font-semibold text-emerald-700 tabular-nums">{fmt(idle)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-slate-300" style={{ width: `${Math.min(idlePct, 100)}%` }} />
+                      </div>
+                      <span className="text-xs tabular-nums text-slate-400 w-9 text-right">{idlePct.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

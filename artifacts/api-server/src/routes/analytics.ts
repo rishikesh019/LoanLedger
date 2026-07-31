@@ -248,7 +248,8 @@ router.get("/analytics/fund-analytics", requireAdmin, async (_req, res): Promise
     cash: "Cash", cheque: "Cheque", upi: "UPI", neft: "NEFT / RTGS",
   };
 
-  // Load raw data
+  // Load raw data — count ALL active borrowers (parents + sub-account tranches);
+  // sub-accounts are additive capital, not splits of the parent principal.
   const funds = await db.select().from(fundsTable);
   const activeBorrowers = await db.select().from(borrowersTable).where(eq(borrowersTable.status, "active"));
   const allPayments = await db.select().from(paymentsTable);
