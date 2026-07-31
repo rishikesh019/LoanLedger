@@ -253,13 +253,33 @@ router.get("/analytics/fund-analytics", requireAdmin, async (_req, res): Promise
   const activeBorrowers = await db.select().from(borrowersTable).where(eq(borrowersTable.status, "active"));
   const allPayments = await db.select().from(paymentsTable);
 
+  // ── Compute current outstanding principal per borrower ──
+  // Use the most recent payment that recorded outstandingPrincipal; fall back to principalAmount.
+  // This mirrors the logic in getOutstandingPrincipal() in borrowers.ts.
+  const paymentsByBorrower = new Map<number, typeof allPayments>();
+  for (const p of allPayments) {
+    if (!paymentsByBorrower.has(p.borrowerId)) paymentsByBorrower.set(p.borrowerId, []);
+    paymentsByBorrower.get(p.borrowerId)!.push(p);
+  }
+  function currentOutstanding(borrowerId: number, fallback: number): number {
+    const pmts = (paymentsByBorrower.get(borrowerId) ?? [])
+      .slice()
+      .sort((a, b) => b.year * 12 + b.month - (a.year * 12 + a.month));
+    for (const p of pmts) {
+      if (p.outstandingPrincipal != null) return round2(Number(p.outstandingPrincipal));
+    }
+    return fallback;
+  }
+
   // ── Totals ──
   const totalFunded = round2(funds.reduce((s, f) => s + Number(f.amount), 0));
-  const totalDisbursed = round2(activeBorrowers.reduce((s, b) => s + Number(b.principalAmount), 0));
+  const totalDisbursed = round2(
+    activeBorrowers.reduce((s, b) => s + currentOutstanding(b.id, Number(b.principalAmount)), 0)
+  );
   const totalAvailable = round2(totalFunded - totalDisbursed);
   const utilizationRate = totalFunded > 0 ? round2((totalDisbursed / totalFunded) * 100) : 0;
 
-  // ── At-risk: principal of active borrowers with ≥1 overdue payment ──
+  // ── At-risk: outstanding principal of active borrowers with ≥1 overdue payment ──
   const now = new Date();
   const currentKey = now.getFullYear() * 12 + now.getMonth(); // month is 0-based
   const overdueByBorrower = new Set<number>();
@@ -271,7 +291,7 @@ router.get("/analytics/fund-analytics", requireAdmin, async (_req, res): Promise
   const atRisk = round2(
     activeBorrowers
       .filter(b => overdueByBorrower.has(b.id))
-      .reduce((s, b) => s + Number(b.principalAmount), 0)
+      .reduce((s, b) => s + currentOutstanding(b.id, Number(b.principalAmount)), 0)
   );
 
   // ── Monthly inflows — last 12 months ──

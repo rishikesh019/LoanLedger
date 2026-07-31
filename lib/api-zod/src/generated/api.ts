@@ -187,7 +187,6 @@ export const ListBorrowersResponse = zod.object({
 export const createBorrowerBodyInterestRateMin = 0;
 
 
-
 export const CreateBorrowerBody = zod.object({
   "name": zod.string(),
   "address": zod.string(),
@@ -338,7 +337,6 @@ export const CreateBorrowerSubAccountParams = zod.object({
 export const createBorrowerSubAccountBodyInterestRateMin = 0;
 
 
-
 export const CreateBorrowerSubAccountBody = zod.object({
   "principalAmount": zod.number(),
   "interestRate": zod.number().min(createBorrowerSubAccountBodyInterestRateMin).describe('Total monthly interest % (default 10, can be higher)'),
@@ -425,7 +423,6 @@ export const CreatePaymentParams = zod.object({
 })
 
 export const createPaymentBodyMonthMax = 12;
-
 
 
 export const CreatePaymentBody = zod.object({
@@ -597,7 +594,6 @@ export const GetAdminDashboardResponse = zod.object({
 }))
 })
 
-
 /**
  * @summary Admin - fund transfer analytics (capital deployed, idle, at-risk, monthly inflows)
  */
@@ -626,13 +622,14 @@ export const GetFundAnalyticsResponse = zod.object({
 /**
  * @summary List fund transfers (admin sees all, user sees own)
  */
+// NOTE: Postgres numeric columns return as strings; coerce.number() handles this.
 export const ListFundsResponseItem = zod.object({
   "id": zod.number(),
   "adminId": zod.number(),
   "userId": zod.number(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
-  "amount": zod.number(),
+  "amount": zod.coerce.number(),
   "paymentMethod": zod.string(),
   "notes": zod.string().nullish(),
   "fundedAt": zod.coerce.date(),
@@ -668,7 +665,6 @@ export const UpdateFundParams = zod.object({
 export const updateFundBodyAmountMin = 0.01;
 
 
-
 export const UpdateFundBody = zod.object({
   "amount": zod.number().min(updateFundBodyAmountMin).optional(),
   "paymentMethod": zod.string().optional(),
@@ -682,7 +678,7 @@ export const UpdateFundResponse = zod.object({
   "userId": zod.number(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
-  "amount": zod.number(),
+  "amount": zod.coerce.number(),
   "paymentMethod": zod.string(),
   "notes": zod.string().nullish(),
   "fundedAt": zod.coerce.date(),
@@ -733,5 +729,4 @@ export const GetCurrentMonthCollectionsResponseItem = zod.object({
   "amountPaid": zod.number().nullish()
 })
 export const GetCurrentMonthCollectionsResponse = zod.array(GetCurrentMonthCollectionsResponseItem)
-
 
