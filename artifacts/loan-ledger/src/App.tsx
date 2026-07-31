@@ -20,6 +20,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
 import AdminBorrowers from "@/pages/admin/borrowers";
 import AdminFunds from "@/pages/admin/funds";
+import AdminFundAnalytics from "@/pages/admin/fund-analytics";
 
 import Layout from "@/components/layout";
 import { useGetMe } from "@workspace/api-client-react";
@@ -216,6 +217,9 @@ function ClerkProviderWithRoutes() {
           </Route>
           <Route path="/admin/funds">
             {() => <AdminOrRedirect component={AdminFunds} />}
+          </Route>
+          <Route path="/admin/fund-analytics">
+            {() => <AdminOrRedirect component={AdminFundAnalytics} />}
           </Route>
 
           {/* Admin settings */}

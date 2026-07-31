@@ -170,7 +170,7 @@ export const ListBorrowersResponse = zod.object({
   "monthsElapsed": zod.number().nullish(),
   "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
-  "outstandingPrincipal": zod.number().nullish().describe('Current outstanding principal after any principal reductions'),
+  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })),
@@ -231,7 +231,7 @@ export const GetBorrowerResponse = zod.object({
   "monthsElapsed": zod.number().nullish(),
   "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
-  "outstandingPrincipal": zod.number().nullish().describe('Current outstanding principal after any principal reductions'),
+  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -278,6 +278,7 @@ export const UpdateBorrowerResponse = zod.object({
   "monthsElapsed": zod.number().nullish(),
   "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -320,6 +321,7 @@ export const ListBorrowerSubAccountsResponseItem = zod.object({
   "monthsElapsed": zod.number().nullish(),
   "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -375,6 +377,7 @@ export const MergeBorrowerSubAccountsResponse = zod.object({
   "monthsElapsed": zod.number().nullish(),
   "parentId": zod.number().nullish().describe('Parent borrower ID for sub-accounts; null for top-level borrowers'),
   "overdueCount": zod.number().describe('Number of unpaid payments for past months'),
+  "outstandingPrincipal": zod.number().optional().describe('Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded)'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -596,16 +599,40 @@ export const GetAdminDashboardResponse = zod.object({
 
 
 /**
+ * @summary Admin - fund transfer analytics (capital deployed, idle, at-risk, monthly inflows)
+ */
+export const GetFundAnalyticsResponse = zod.object({
+  "totalFunded": zod.number().describe('Sum of all fund transfers ever recorded'),
+  "totalDisbursed": zod.number().describe('Sum of principal for all active borrowers across all lenders'),
+  "totalAvailable": zod.number().describe('totalFunded minus totalDisbursed'),
+  "atRisk": zod.number().describe('Principal tied to borrowers that have at least one overdue payment'),
+  "utilizationRate": zod.number().describe('Percentage of funded capital currently disbursed (0-100)'),
+  "monthlyInflows": zod.array(zod.object({
+  "year": zod.number(),
+  "month": zod.number(),
+  "label": zod.string().describe('Human-readable label e.g. \"Jan 2026\"'),
+  "amount": zod.number(),
+  "count": zod.number()
+})),
+  "paymentMethodBreakdown": zod.array(zod.object({
+  "method": zod.string(),
+  "label": zod.string(),
+  "amount": zod.number(),
+  "count": zod.number()
+}))
+})
+
+
+/**
  * @summary List fund transfers (admin sees all, user sees own)
  */
-// NOTE: Postgres numeric columns return as strings; coerce.number() handles this.
 export const ListFundsResponseItem = zod.object({
   "id": zod.number(),
   "adminId": zod.number(),
   "userId": zod.number(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
-  "amount": zod.coerce.number(),
+  "amount": zod.number(),
   "paymentMethod": zod.string(),
   "notes": zod.string().nullish(),
   "fundedAt": zod.coerce.date(),
@@ -655,7 +682,7 @@ export const UpdateFundResponse = zod.object({
   "userId": zod.number(),
   "userName": zod.string().nullish(),
   "userEmail": zod.string().nullish(),
-  "amount": zod.coerce.number(),
+  "amount": zod.number(),
   "paymentMethod": zod.string(),
   "notes": zod.string().nullish(),
   "fundedAt": zod.coerce.date(),

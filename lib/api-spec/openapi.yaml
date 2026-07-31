@@ -503,6 +503,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminDashboard"
 
+  /analytics/fund-analytics:
+    get:
+      operationId: getFundAnalytics
+      tags: [analytics]
+      summary: Admin - fund transfer analytics (capital deployed, idle, at-risk, monthly inflows)
+      responses:
+        "200":
+          description: Fund analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundAnalytics"
+
   # ─── FUNDS ────────────────────────────────────────────────────────────────
   /funds:
     get:
@@ -1033,6 +1046,63 @@ components:
             $ref: "#/components/schemas/UserStats"
 
     # ── Collections ────────────────────────────────────────────────────────────
+    FundAnalytics:
+      type: object
+      required: [totalFunded, totalDisbursed, totalAvailable, atRisk, utilizationRate, monthlyInflows, paymentMethodBreakdown]
+      properties:
+        totalFunded:
+          type: number
+          description: Sum of all fund transfers ever recorded
+        totalDisbursed:
+          type: number
+          description: Sum of principal for all active borrowers across all lenders
+        totalAvailable:
+          type: number
+          description: totalFunded minus totalDisbursed
+        atRisk:
+          type: number
+          description: Principal tied to borrowers that have at least one overdue payment
+        utilizationRate:
+          type: number
+          description: Percentage of funded capital currently disbursed (0-100)
+        monthlyInflows:
+          type: array
+          items:
+            $ref: "#/components/schemas/FundMonthlyInflow"
+        paymentMethodBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/FundPaymentMethodBreakdown"
+
+    FundMonthlyInflow:
+      type: object
+      required: [year, month, label, amount, count]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        label:
+          type: string
+          description: Human-readable label e.g. "Jan 2026"
+        amount:
+          type: number
+        count:
+          type: integer
+
+    FundPaymentMethodBreakdown:
+      type: object
+      required: [method, label, amount, count]
+      properties:
+        method:
+          type: string
+        label:
+          type: string
+        amount:
+          type: number
+        count:
+          type: integer
+
     CollectionItem:
       type: object
       required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, interestRate, interestDue, overdueCount, hasPaymentRecord, isPaid]

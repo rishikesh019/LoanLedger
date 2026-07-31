@@ -117,11 +117,8 @@ export interface Borrower {
   parentId?: number | null;
   /** Number of unpaid payments for past months */
   overdueCount: number;
-  /**
-     * Current outstanding principal after any principal reductions
-     * @nullable
-     */
-  outstandingPrincipal?: number | null;
+  /** Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded) */
+  outstandingPrincipal?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -298,6 +295,37 @@ export interface AdminDashboard {
   totalCommissionEarned: number;
   monthlyTrend: MonthlyStats[];
   topPerformers: UserStats[];
+}
+
+export interface FundMonthlyInflow {
+  year: number;
+  month: number;
+  /** Human-readable label e.g. "Jan 2026" */
+  label: string;
+  amount: number;
+  count: number;
+}
+
+export interface FundPaymentMethodBreakdown {
+  method: string;
+  label: string;
+  amount: number;
+  count: number;
+}
+
+export interface FundAnalytics {
+  /** Sum of all fund transfers ever recorded */
+  totalFunded: number;
+  /** Sum of principal for all active borrowers across all lenders */
+  totalDisbursed: number;
+  /** totalFunded minus totalDisbursed */
+  totalAvailable: number;
+  /** Principal tied to borrowers that have at least one overdue payment */
+  atRisk: number;
+  /** Percentage of funded capital currently disbursed (0-100) */
+  utilizationRate: number;
+  monthlyInflows: FundMonthlyInflow[];
+  paymentMethodBreakdown: FundPaymentMethodBreakdown[];
 }
 
 export interface CollectionItem {

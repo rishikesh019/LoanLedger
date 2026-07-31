@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, borrowersTable, paymentsTable, usersTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { db, borrowersTable, paymentsTable, usersTable, fundsTable } from "@workspace/db";
 import {
   GetDashboardStatsResponse,
   GetMonthlyStatsQueryParams,
@@ -238,6 +238,82 @@ router.get("/analytics/admin-dashboard", requireAdmin, async (req, res): Promise
     monthlyTrend,
     topPerformers: topPerformers.slice(0, 10),
   });
+});
+
+// GET /analytics/fund-analytics — admin only
+router.get("/analytics/fund-analytics", requireAdmin, async (_req, res): Promise<void> => {
+  const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const METHOD_LABELS: Record<string, string> = {
+    online: "Online Transfer", bank_transfer: "Bank Transfer",
+    cash: "Cash", cheque: "Cheque", upi: "UPI", neft: "NEFT / RTGS",
+  };
+
+  // Load raw data
+  const funds = await db.select().from(fundsTable);
+  const activeBorrowers = await db.select().from(borrowersTable).where(eq(borrowersTable.status, "active"));
+  const allPayments = await db.select().from(paymentsTable);
+
+  // ── Totals ──
+  const totalFunded = round2(funds.reduce((s, f) => s + Number(f.amount), 0));
+  const totalDisbursed = round2(activeBorrowers.reduce((s, b) => s + Number(b.principalAmount), 0));
+  const totalAvailable = round2(totalFunded - totalDisbursed);
+  const utilizationRate = totalFunded > 0 ? round2((totalDisbursed / totalFunded) * 100) : 0;
+
+  // ── At-risk: principal of active borrowers with ≥1 overdue payment ──
+  const now = new Date();
+  const currentKey = now.getFullYear() * 12 + now.getMonth(); // month is 0-based
+  const overdueByBorrower = new Set<number>();
+  for (const p of allPayments) {
+    if (!p.isPaid && (p.year * 12 + (p.month - 1)) < currentKey) {
+      overdueByBorrower.add(p.borrowerId);
+    }
+  }
+  const atRisk = round2(
+    activeBorrowers
+      .filter(b => overdueByBorrower.has(b.id))
+      .reduce((s, b) => s + Number(b.principalAmount), 0)
+  );
+
+  // ── Monthly inflows — last 12 months ──
+  const monthMap: Record<string, { year: number; month: number; amount: number; count: number }> = {};
+  for (const f of funds) {
+    const d = new Date(f.fundedAt);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const key = `${y}-${String(m).padStart(2, "0")}`;
+    if (!monthMap[key]) monthMap[key] = { year: y, month: m, amount: 0, count: 0 };
+    monthMap[key].amount += Number(f.amount);
+    monthMap[key].count += 1;
+  }
+  const monthlyInflows = Object.values(monthMap)
+    .sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month)
+    .slice(-12)
+    .map(m => ({
+      year: m.year,
+      month: m.month,
+      label: `${MONTHS_SHORT[m.month - 1]} ${m.year}`,
+      amount: round2(m.amount),
+      count: m.count,
+    }));
+
+  // ── Payment method breakdown ──
+  const methodMap: Record<string, { amount: number; count: number }> = {};
+  for (const f of funds) {
+    const method = f.paymentMethod ?? "online";
+    if (!methodMap[method]) methodMap[method] = { amount: 0, count: 0 };
+    methodMap[method].amount += Number(f.amount);
+    methodMap[method].count += 1;
+  }
+  const paymentMethodBreakdown = Object.entries(methodMap)
+    .map(([method, { amount, count }]) => ({
+      method,
+      label: METHOD_LABELS[method] ?? method,
+      amount: round2(amount),
+      count,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  res.json({ totalFunded, totalDisbursed, totalAvailable, atRisk, utilizationRate, monthlyInflows, paymentMethodBreakdown });
 });
 
 export default router;

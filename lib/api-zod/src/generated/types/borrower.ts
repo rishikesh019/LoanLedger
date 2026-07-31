@@ -50,6 +50,8 @@ export interface Borrower {
   parentId?: number | null;
   /** Number of unpaid payments for past months */
   overdueCount: number;
+  /** Current outstanding principal after any principal reductions (defaults to principalAmount if no payments recorded) */
+  outstandingPrincipal?: number;
   createdAt: Date;
   updatedAt?: Date;
 }

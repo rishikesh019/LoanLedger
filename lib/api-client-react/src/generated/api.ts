@@ -28,6 +28,7 @@ import type {
   CollectionItem,
   DashboardStats,
   Fund,
+  FundAnalytics,
   FundInput,
   FundList,
   FundUpdate,
@@ -1858,6 +1859,83 @@ export function useGetAdminDashboard<TData = Awaited<ReturnType<typeof getAdminD
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAdminDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetFundAnalyticsUrl = () => {
+
+
+
+
+  return `/api/analytics/fund-analytics`
+}
+
+/**
+ * @summary Admin - fund transfer analytics (capital deployed, idle, at-risk, monthly inflows)
+ */
+export const getFundAnalytics = async ( options?: RequestInit): Promise<FundAnalytics> => {
+
+  return customFetch<FundAnalytics>(getGetFundAnalyticsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFundAnalyticsQueryKey = () => {
+    return [
+    `/api/analytics/fund-analytics`
+    ] as const;
+    }
+
+
+export const getGetFundAnalyticsQueryOptions = <TData = Awaited<ReturnType<typeof getFundAnalytics>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFundAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFundAnalyticsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFundAnalytics>>> = ({ signal }) => getFundAnalytics({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFundAnalytics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFundAnalyticsQueryResult = NonNullable<Awaited<ReturnType<typeof getFundAnalytics>>>
+export type GetFundAnalyticsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin - fund transfer analytics (capital deployed, idle, at-risk, monthly inflows)
+ */
+
+export function useGetFundAnalytics<TData = Awaited<ReturnType<typeof getFundAnalytics>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFundAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFundAnalyticsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
