@@ -640,10 +640,25 @@ paths:
     get:
       operationId: getCurrentMonthCollections
       tags: [analytics]
-      summary: Current month payment collection status per borrower
+      summary: Payment collection status per borrower for a selected month
+      parameters:
+        - name: year
+          in: query
+          required: false
+          description: Calendar year to view; defaults to the current year
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: false
+          description: Calendar month to view (1-12); defaults to the current month
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
       responses:
         "200":
-          description: Collection items for current month
+          description: Collection items for the selected month
           content:
             application/json:
               schema:

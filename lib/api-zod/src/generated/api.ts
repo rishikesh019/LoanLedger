@@ -732,8 +732,17 @@ export const GetUserBalanceResponse = zod.object({
 
 
 /**
- * @summary Current month payment collection status per borrower
+ * @summary Payment collection status per borrower for a selected month
  */
+export const getCurrentMonthCollectionsQueryMonthMax = 12;
+
+
+
+export const GetCurrentMonthCollectionsQueryParams = zod.object({
+  "year": zod.coerce.number().optional().describe('Calendar year to view; defaults to the current year'),
+  "month": zod.coerce.number().min(1).max(getCurrentMonthCollectionsQueryMonthMax).optional().describe('Calendar month to view (1-12); defaults to the current month')
+})
+
 export const GetCurrentMonthCollectionsResponseItem = zod.object({
   "borrowerId": zod.coerce.number(),
   "borrowerName": zod.string(),

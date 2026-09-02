@@ -12,8 +12,14 @@ function round2(n: number): number {
 router.get("/collections/current-month", requireUser, async (req, res): Promise<void> => {
   const appUser = (req as any).appUser;
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
+  const requestedYear = Number(req.query.year);
+  const requestedMonth = Number(req.query.month);
+  const currentYear = Number.isInteger(requestedYear) && requestedYear >= 1970 && requestedYear <= 9999
+    ? requestedYear
+    : now.getFullYear();
+  const currentMonth = Number.isInteger(requestedMonth) && requestedMonth >= 1 && requestedMonth <= 12
+    ? requestedMonth
+    : now.getMonth() + 1;
 
   // Admin sees all active borrowers; regular users see only their own
   const conditions: ReturnType<typeof eq>[] = [eq(borrowersTable.status, "active")];
@@ -43,7 +49,7 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
 
     const interestDue = round2((outstandingPrincipal * Number(b.interestRate)) / 100);
 
-    // Current month payment record
+    // Selected month payment record
     const currentPayment = payments.find(p => p.year === currentYear && p.month === currentMonth);
 
     return {

@@ -24,6 +24,7 @@ export * from './fundList';
 export * from './fundMonthlyInflow';
 export * from './fundPaymentMethodBreakdown';
 export * from './fundUpdate';
+export * from './getCurrentMonthCollectionsParams';
 export * from './getMonthlyStatsParams';
 export * from './getYearlyStatsParams';
 export * from './healthStatus';

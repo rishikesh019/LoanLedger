@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Circle, AlertTriangle, CalendarCheck, Phone, ExternalLink, Calendar } from "lucide-react";
+import { CheckCircle, Circle, AlertTriangle, CalendarCheck, Phone, ExternalLink, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -24,13 +24,20 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 
 export default function Collections() {
   const now = new Date();
-  const currentMonthLabel = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
   const queryClient = useQueryClient();
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
 
-  const { data: items, isLoading, refetch } = useGetCurrentMonthCollections();
+  const selectedYear = selectedDate.getFullYear();
+  const selectedMonth = selectedDate.getMonth() + 1;
+  const isCurrentMonth = selectedYear === now.getFullYear() && selectedMonth === now.getMonth() + 1;
+  const currentMonthLabel = `${MONTH_NAMES[selectedDate.getMonth()]} ${selectedYear}`;
+  const { data: items, isLoading, refetch } = useGetCurrentMonthCollections({
+    year: selectedYear,
+    month: selectedMonth,
+  });
   const updatePayment = useUpdatePayment();
 
   const paid = (items ?? []).filter(i => i.isPaid);
@@ -50,7 +57,7 @@ export default function Collections() {
         const res = await fetch(`/api/borrowers/${item.borrowerId}/payments`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ month: now.getMonth() + 1, year: now.getFullYear(), isPaid: true, paidDate: new Date().toISOString().split("T")[0] }),
+          body: JSON.stringify({ month: selectedMonth, year: selectedYear, isPaid: true, paidDate: new Date().toISOString().split("T")[0] }),
         });
         if (!res.ok) throw new Error("Failed to create payment");
         toast({ title: "Marked as paid" });
@@ -78,6 +85,10 @@ export default function Collections() {
         onError: () => { toast({ title: "Error", variant: "destructive" }); setTogglingId(null); },
       }
     );
+  };
+
+  const changeMonth = (offset: number) => {
+    setSelectedDate(current => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   };
 
   if (isLoading) {
@@ -142,9 +153,49 @@ export default function Collections() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-slate-900">Monthly Collections</h1>
-        <p className="text-slate-500 text-sm mt-0.5 flex items-center gap-1.5">
-          <CalendarCheck className="h-4 w-4" />{currentMonthLabel} — {items?.length ?? 0} active borrowers
-        </p>
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white shadow-sm">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => changeMonth(-1)}
+              className="h-8 w-8 rounded-r-none text-slate-500 hover:text-slate-900"
+              aria-label="View previous month"
+              data-testid="button-previous-collection-month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex min-w-[142px] items-center justify-center gap-1.5 px-2 text-sm font-medium text-slate-700">
+              <CalendarCheck className="h-4 w-4 text-emerald-600" />
+              {currentMonthLabel}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => changeMonth(1)}
+              disabled={isCurrentMonth}
+              className="h-8 w-8 rounded-l-none text-slate-500 hover:text-slate-900 disabled:opacity-40"
+              aria-label="View next month"
+              data-testid="button-next-collection-month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          {!isCurrentMonth && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSelectedDate(new Date(now.getFullYear(), now.getMonth(), 1))}
+              className="h-8 text-xs"
+              data-testid="button-current-collection-month"
+            >
+              Current month
+            </Button>
+          )}
+          <span className="text-slate-500 text-sm">{items?.length ?? 0} active borrowers</span>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -167,7 +218,7 @@ export default function Collections() {
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500 mb-1">Total Due</p>
             <p className="text-lg font-bold text-slate-900">{formatCurrency(totalDue)}</p>
-            <p className="text-xs text-slate-400">this month</p>
+            <p className="text-xs text-slate-400">selected month</p>
           </CardContent>
         </Card>
         <Card className="border-red-100 bg-red-50">

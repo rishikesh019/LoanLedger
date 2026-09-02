@@ -33,6 +33,7 @@ import type {
   FundInput,
   FundList,
   FundUpdate,
+  GetCurrentMonthCollectionsParams,
   GetMonthlyStatsParams,
   GetYearlyStatsParams,
   HealthStatus,
@@ -2393,20 +2394,27 @@ export function useGetUserBalance<TData = Awaited<ReturnType<typeof getUserBalan
 
 
 
-export const getGetCurrentMonthCollectionsUrl = () => {
+export const getGetCurrentMonthCollectionsUrl = (params?: GetCurrentMonthCollectionsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/collections/current-month`
+  return stringifiedParams.length > 0 ? `/api/collections/current-month?${stringifiedParams}` : `/api/collections/current-month`
 }
 
 /**
- * @summary Current month payment collection status per borrower
+ * @summary Payment collection status per borrower for a selected month
  */
-export const getCurrentMonthCollections = async ( options?: RequestInit): Promise<CollectionItem[]> => {
+export const getCurrentMonthCollections = async (params?: GetCurrentMonthCollectionsParams, options?: RequestInit): Promise<CollectionItem[]> => {
 
-  return customFetch<CollectionItem[]>(getGetCurrentMonthCollectionsUrl(),
+  return customFetch<CollectionItem[]>(getGetCurrentMonthCollectionsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -2419,23 +2427,23 @@ export const getCurrentMonthCollections = async ( options?: RequestInit): Promis
 
 
 
-export const getGetCurrentMonthCollectionsQueryKey = () => {
+export const getGetCurrentMonthCollectionsQueryKey = (params?: GetCurrentMonthCollectionsParams,) => {
     return [
-    `/api/collections/current-month`
+    `/api/collections/current-month`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetCurrentMonthCollectionsQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCurrentMonthCollectionsQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError = ErrorType<unknown>>(params?: GetCurrentMonthCollectionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetCurrentMonthCollectionsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetCurrentMonthCollectionsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentMonthCollections>>> = ({ signal }) => getCurrentMonthCollections({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentMonthCollections>>> = ({ signal }) => getCurrentMonthCollections(params, { signal, ...requestOptions });
 
 
 
@@ -2449,15 +2457,15 @@ export type GetCurrentMonthCollectionsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Current month payment collection status per borrower
+ * @summary Payment collection status per borrower for a selected month
  */
 
 export function useGetCurrentMonthCollections<TData = Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetCurrentMonthCollectionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentMonthCollections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetCurrentMonthCollectionsQueryOptions(options)
+  const queryOptions = getGetCurrentMonthCollectionsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -464,3 +464,16 @@ export type GetYearlyStatsParams = {
 userId?: number | null;
 };
 
+export type GetCurrentMonthCollectionsParams = {
+/**
+ * Calendar year to view; defaults to the current year
+ */
+year?: number;
+/**
+ * Calendar month to view (1-12); defaults to the current month
+ * @minimum 1
+ * @maximum 12
+ */
+month?: number;
+};
+
