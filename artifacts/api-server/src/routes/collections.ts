@@ -31,26 +31,26 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
 
   const items = await Promise.all(borrowers.map(async (b) => {
     const payments = await db.select().from(paymentsTable).where(eq(paymentsTable.borrowerId, b.id));
+    const selectedCursor = currentYear * 12 + (currentMonth - 1);
+    const currentPayment = payments.find(p => p.year === currentYear && p.month === currentMonth);
 
     // Overdue = unpaid payments in past months
     const overdueCount = payments.filter(p =>
       !p.isPaid && (p.year * 12 + (p.month - 1) < currentYear * 12 + (currentMonth - 1))
     ).length;
 
-    // Current outstanding principal
-    const sortedByDate = [...payments].sort((a, b) => b.year * 12 + b.month - (a.year * 12 + a.month));
-    let outstandingPrincipal = Number(b.principalAmount);
-    for (const p of sortedByDate) {
-      if (p.outstandingPrincipal != null) {
-        outstandingPrincipal = Number(p.outstandingPrincipal);
-        break;
-      }
-    }
+    // Principal at the start of the selected month, not today's balance.
+    const latestPrevious = [...payments]
+      .filter(p => p.year * 12 + (p.month - 1) < selectedCursor)
+      .sort((a, b) => b.year * 12 + b.month - (a.year * 12 + a.month))
+      .find(p => p.outstandingPrincipal != null);
+    const outstandingPrincipal = currentPayment
+      ? Number(currentPayment.principalAmount)
+      : latestPrevious?.outstandingPrincipal != null
+        ? Number(latestPrevious.outstandingPrincipal)
+        : Number(b.principalAmount);
 
     const interestDue = round2((outstandingPrincipal * Number(b.interestRate)) / 100);
-
-    // Selected month payment record
-    const currentPayment = payments.find(p => p.year === currentYear && p.month === currentMonth);
 
     return {
       borrowerId: b.id,
@@ -65,6 +65,8 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
       hasPaymentRecord: !!currentPayment,
       paymentId: currentPayment?.id ?? null,
       isPaid: currentPayment?.isPaid ?? false,
+      isMissed: currentPayment?.isMissed ?? false,
+      capitalizedAmount: currentPayment?.capitalizedAmount != null ? Number(currentPayment.capitalizedAmount) : 0,
       amountPaid: currentPayment?.amountPaid != null ? Number(currentPayment.amountPaid) : null,
     };
   }));

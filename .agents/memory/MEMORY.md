@@ -2,3 +2,4 @@
 - [Commission rate rule](commission-rule.md) — 10% base rate hardcoded; commissionRate = interestRate − 10, always recalculated on create/update.
 - [Clerk + Express quirk](clerk-express.md) — clerkClient in @clerk/express v2 is an object, not a function; call clerkClient.users.getUser() directly.
 - [Postgres numeric coercion](postgres-numeric-coercion.md) — Drizzle returns numeric/decimal columns as strings; response Zod schemas need zod.coerce.number(), not zod.number().
+- [Missed EMI capitalization](missed-emi-capitalization.md) — missed months add interest plus scheduled principal; status corrections rebuild all later ledger snapshots.

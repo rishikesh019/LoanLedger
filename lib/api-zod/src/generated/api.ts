@@ -393,6 +393,7 @@ export const ListPaymentsParams = zod.object({
 export const listPaymentsResponseMonthMax = 12;
 
 export const listPaymentsResponsePrincipalReductionDefault = 0;
+export const listPaymentsResponseCapitalizedAmountDefault = 0;
 
 export const ListPaymentsResponseItem = zod.object({
   "id": zod.coerce.number(),
@@ -410,6 +411,8 @@ export const ListPaymentsResponseItem = zod.object({
   "principalReduction": zod.coerce.number().default(listPaymentsResponsePrincipalReductionDefault).describe('Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount)'),
   "outstandingPrincipal": zod.coerce.number().nullish().describe('Remaining outstanding principal after this payment'),
   "isPaid": zod.boolean(),
+  "isMissed": zod.boolean().describe('Whether this EMI was missed and capitalized into outstanding principal'),
+  "capitalizedAmount": zod.coerce.number().default(listPaymentsResponseCapitalizedAmountDefault).describe('Full missed EMI added to principal (interest plus scheduled principal)'),
   "paidDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
@@ -433,6 +436,7 @@ export const CreatePaymentBody = zod.object({
   "year": zod.number(),
   "amountPaid": zod.number().optional().describe('Actual amount paid. If > monthly interest, surplus reduces principal.'),
   "isPaid": zod.boolean().optional(),
+  "isMissed": zod.boolean().optional().describe('Mark the month as missed; mutually exclusive with isPaid'),
   "paidDate": zod.coerce.date().optional(),
   "notes": zod.string().optional()
 })
@@ -448,6 +452,7 @@ export const UpdatePaymentParams = zod.object({
 
 export const UpdatePaymentBody = zod.object({
   "isPaid": zod.boolean().optional(),
+  "isMissed": zod.boolean().optional().describe('Mark the month as missed; mutually exclusive with isPaid'),
   "paidDate": zod.coerce.date().optional(),
   "notes": zod.string().optional()
 })
@@ -455,6 +460,7 @@ export const UpdatePaymentBody = zod.object({
 export const updatePaymentResponseMonthMax = 12;
 
 export const updatePaymentResponsePrincipalReductionDefault = 0;
+export const updatePaymentResponseCapitalizedAmountDefault = 0;
 
 export const UpdatePaymentResponse = zod.object({
   "id": zod.coerce.number(),
@@ -472,6 +478,8 @@ export const UpdatePaymentResponse = zod.object({
   "principalReduction": zod.coerce.number().default(updatePaymentResponsePrincipalReductionDefault).describe('Amount applied to reduce outstanding principal (amountPaid - interestAmount when amountPaid > interestAmount)'),
   "outstandingPrincipal": zod.coerce.number().nullish().describe('Remaining outstanding principal after this payment'),
   "isPaid": zod.boolean(),
+  "isMissed": zod.boolean().describe('Whether this EMI was missed and capitalized into outstanding principal'),
+  "capitalizedAmount": zod.coerce.number().default(updatePaymentResponseCapitalizedAmountDefault).describe('Full missed EMI added to principal (interest plus scheduled principal)'),
   "paidDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
@@ -756,6 +764,8 @@ export const GetCurrentMonthCollectionsResponseItem = zod.object({
   "hasPaymentRecord": zod.boolean(),
   "paymentId": zod.coerce.number().nullish(),
   "isPaid": zod.boolean(),
+  "isMissed": zod.boolean(),
+  "capitalizedAmount": zod.coerce.number().describe('Full EMI added to principal when this month is marked missed'),
   "amountPaid": zod.coerce.number().nullish()
 })
 export const GetCurrentMonthCollectionsResponse = zod.array(GetCurrentMonthCollectionsResponseItem)

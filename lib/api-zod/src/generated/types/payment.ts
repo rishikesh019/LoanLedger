@@ -39,6 +39,10 @@ export interface Payment {
      */
   outstandingPrincipal?: number | null;
   isPaid: boolean;
+  /** Whether this EMI was missed and capitalized into outstanding principal */
+  isMissed: boolean;
+  /** Full missed EMI added to principal (interest plus scheduled principal) */
+  capitalizedAmount: number;
   /** @nullable */
   paidDate?: Date | null;
   /** @nullable */

@@ -8,6 +8,8 @@
 
 export interface PaymentUpdate {
   isPaid?: boolean;
+  /** Mark the month as missed; mutually exclusive with isPaid */
+  isMissed?: boolean;
   paidDate?: Date;
   notes?: string;
 }

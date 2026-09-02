@@ -4,7 +4,8 @@ import { useAuth } from "@clerk/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Circle, AlertTriangle, CalendarCheck, Phone, ExternalLink, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle, Circle, AlertTriangle, CalendarCheck, Phone, ExternalLink, Calendar, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -41,50 +42,79 @@ export default function Collections() {
   const updatePayment = useUpdatePayment();
 
   const paid = (items ?? []).filter(i => i.isPaid);
-  const pending = (items ?? []).filter(i => i.hasPaymentRecord && !i.isPaid);
-  const notRecorded = (items ?? []).filter(i => !i.hasPaymentRecord);
+  const missed = (items ?? []).filter(i => i.isMissed);
+  const notRecorded = (items ?? []).filter(i => !i.hasPaymentRecord || (!i.isPaid && !i.isMissed));
 
   const totalDue = (items ?? []).reduce((s, i) => s + i.interestDue, 0);
   const totalCollected = paid.reduce((s, i) => s + (i.amountPaid ?? i.interestDue), 0);
+  const totalCapitalized = missed.reduce((s, i) => s + i.capitalizedAmount, 0);
 
-  const handleMarkPaid = async (item: typeof items extends (infer T)[] | undefined ? T : never) => {
+  const refreshPaymentData = (borrowerId: number) => {
+    queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(borrowerId) });
+    queryClient.invalidateQueries({ queryKey: getGetBorrowerQueryKey(borrowerId) });
+    refetch();
+  };
+
+  const handleStatusChange = async (
+    item: typeof items extends (infer T)[] | undefined ? T : never,
+    status: "paid" | "missed" | "not_recorded",
+  ) => {
     if (!item) return;
-    if (!item.hasPaymentRecord || !item.paymentId) {
-      // No payment record — create one
-      setTogglingId(item.borrowerId);
-      try {
+    setTogglingId(item.borrowerId);
+    try {
+      const token = await getToken();
+
+      if (status === "not_recorded") {
+        if (item.paymentId) {
+          const res = await fetch(`/api/borrowers/${item.borrowerId}/payments/${item.paymentId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) throw new Error("Failed to remove payment record");
+        }
+        toast({ title: "Marked as not recorded", description: "Any missed-EMI balance increase was removed." });
+        refreshPaymentData(item.borrowerId);
+        return;
+      }
+
+      const payload = {
+        isPaid: status === "paid",
+        isMissed: status === "missed",
+        paidDate: status === "paid" ? new Date().toISOString().split("T")[0] : undefined,
+      };
+
+      if (!item.hasPaymentRecord || !item.paymentId) {
         const token = await getToken();
         const res = await fetch(`/api/borrowers/${item.borrowerId}/payments`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ month: selectedMonth, year: selectedYear, isPaid: true, paidDate: new Date().toISOString().split("T")[0] }),
+          body: JSON.stringify({ month: selectedMonth, year: selectedYear, ...payload }),
         });
-        if (!res.ok) throw new Error("Failed to create payment");
-        toast({ title: "Marked as paid" });
-        refetch();
-      } catch {
-        toast({ title: "Error", variant: "destructive" });
-      } finally {
-        setTogglingId(null);
+        if (!res.ok) throw new Error(`Failed to mark EMI as ${status}`);
+      } else {
+        await updatePayment.mutateAsync({
+          borrowerId: item.borrowerId,
+          paymentId: item.paymentId,
+          data: payload,
+        });
       }
-      return;
-    }
 
-    // Toggle existing payment
-    setTogglingId(item.borrowerId);
-    updatePayment.mutate(
-      { borrowerId: item.borrowerId, paymentId: item.paymentId, data: { isPaid: !item.isPaid, paidDate: !item.isPaid ? new Date().toISOString().split("T")[0] : undefined } },
-      {
-        onSuccess: () => {
-          toast({ title: item.isPaid ? "Marked as pending" : "Marked as paid" });
-          queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(item.borrowerId) });
-          queryClient.invalidateQueries({ queryKey: getGetBorrowerQueryKey(item.borrowerId) });
-          refetch();
-          setTogglingId(null);
-        },
-        onError: () => { toast({ title: "Error", variant: "destructive" }); setTogglingId(null); },
-      }
-    );
+      toast({
+        title: status === "paid" ? "Marked as paid" : "Marked as missed",
+        description: status === "missed"
+          ? "The full EMI was added to the outstanding principal."
+          : "The selected month has been updated.",
+      });
+      refreshPaymentData(item.borrowerId);
+    } catch (error) {
+      toast({
+        title: "Unable to update EMI status",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   const changeMonth = (offset: number) => {
@@ -125,18 +155,27 @@ export default function Collections() {
           {item.amountPaid != null ? formatCurrency(item.amountPaid) : <span className="text-slate-300">—</span>}
         </td>
         <td className="px-4 md:px-6 py-3">
-          <button
-            onClick={() => handleMarkPaid(item)}
+          <Select
+            value={item.isPaid ? "paid" : item.isMissed ? "missed" : "not_recorded"}
+            onValueChange={(value) => handleStatusChange(item, value as "paid" | "missed" | "not_recorded")}
             disabled={isToggling}
-            className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full transition-colors whitespace-nowrap ${
-              item.isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-              : item.hasPaymentRecord ? "bg-slate-100 text-slate-500 hover:bg-slate-200"
-              : "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-            }`}
           >
-            {item.isPaid ? <CheckCircle className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
-            {item.isPaid ? "Paid" : item.hasPaymentRecord ? "Pending" : "Not Recorded"}
-          </button>
+            <SelectTrigger
+              className={`h-8 w-[132px] text-xs font-medium ${
+                item.isPaid ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : item.isMissed ? "border-red-200 bg-red-50 text-red-700"
+                : "border-amber-200 bg-amber-50 text-amber-700"
+              }`}
+              data-testid={`select-collection-status-${item.borrowerId}`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="paid"><span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-600" />Paid</span></SelectItem>
+              <SelectItem value="missed"><span className="flex items-center gap-1.5"><XCircle className="h-3.5 w-3.5 text-red-600" />Missed</span></SelectItem>
+              <SelectItem value="not_recorded"><span className="flex items-center gap-1.5"><Circle className="h-3.5 w-3.5 text-amber-600" />Not recorded</span></SelectItem>
+            </SelectContent>
+          </Select>
         </td>
         <td className="px-4 md:px-6 py-3">
           <Link href={`/borrowers/${item.borrowerId}`}>
@@ -207,34 +246,34 @@ export default function Collections() {
             <p className="text-xs text-emerald-500">{paid.length} borrower{paid.length !== 1 ? "s" : ""}</p>
           </CardContent>
         </Card>
-        <Card className="border-amber-200 bg-amber-50">
+        <Card className="border-red-200 bg-red-50">
           <CardContent className="p-3 md:p-4">
-            <p className="text-xs text-amber-600 mb-1">Pending</p>
-            <p className="text-lg font-bold text-amber-700">{pending.length + notRecorded.length}</p>
-            <p className="text-xs text-amber-500">not yet paid</p>
+            <p className="text-xs text-red-600 mb-1">Missed EMI</p>
+            <p className="text-lg font-bold text-red-700">{formatCurrency(totalCapitalized)}</p>
+            <p className="text-xs text-red-500">{missed.length} added to principal</p>
           </CardContent>
         </Card>
         <Card className="border-slate-200">
           <CardContent className="p-3 md:p-4">
-            <p className="text-xs text-slate-500 mb-1">Total Due</p>
-            <p className="text-lg font-bold text-slate-900">{formatCurrency(totalDue)}</p>
-            <p className="text-xs text-slate-400">selected month</p>
+            <p className="text-xs text-slate-500 mb-1">Not Recorded</p>
+            <p className="text-lg font-bold text-slate-900">{notRecorded.length}</p>
+            <p className="text-xs text-slate-400">needs manager review</p>
           </CardContent>
         </Card>
         <Card className="border-red-100 bg-red-50">
           <CardContent className="p-3 md:p-4">
-            <p className="text-xs text-red-600 mb-1">Overdue Borrowers</p>
-            <p className="text-lg font-bold text-red-700">{(items ?? []).filter(i => i.overdueCount > 0).length}</p>
-            <p className="text-xs text-red-400">have past-due payments</p>
+            <p className="text-xs text-red-600 mb-1">Total Due</p>
+            <p className="text-lg font-bold text-red-700">{formatCurrency(totalDue)}</p>
+            <p className="text-xs text-red-400">selected month interest</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Pending / Not recorded section */}
-      {(pending.length > 0 || notRecorded.length > 0) && (
+      {/* Missed / not recorded section */}
+      {(missed.length > 0 || notRecorded.length > 0) && (
         <Card className="border-amber-200">
           <CardHeader className="pb-3 px-4 md:px-6">
-            <CardTitle className="text-base font-semibold text-amber-700">⚠ Needs Collection ({pending.length + notRecorded.length})</CardTitle>
+            <CardTitle className="text-base font-semibold text-amber-700">⚠ Needs Review ({missed.length + notRecorded.length})</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -250,7 +289,7 @@ export default function Collections() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-amber-50">
-                  {[...pending, ...notRecorded].map(item => <BorrowerRow key={item.borrowerId} item={item} />)}
+                  {[...missed, ...notRecorded].map(item => <BorrowerRow key={item.borrowerId} item={item} />)}
                 </tbody>
               </table>
             </div>

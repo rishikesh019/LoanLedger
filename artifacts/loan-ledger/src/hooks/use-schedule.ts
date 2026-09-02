@@ -53,12 +53,12 @@ export function useSchedule(
       const existing = paymentMap.get(`${year}-${month}`);
       const isUpcoming = cursor > nowCursor;
       const isOverdue =
-        !isUpcoming && cursor < nowCursor && (!existing || !existing.isPaid);
+        !isUpcoming && cursor < nowCursor && (!existing || (!existing.isPaid && !existing.isMissed));
 
-      const outstanding = existing?.outstandingPrincipal ?? runningOutstanding;
-      const interestDue =
+      const outstanding = existing?.principalAmount ?? runningOutstanding;
+      const interestDue = existing?.interestAmount ??
         Math.round((outstanding * borrower.interestRate) / 100 * 100) / 100;
-      const commissionDue =
+      const commissionDue = existing?.commissionAmount ??
         Math.round((outstanding * borrower.commissionRate) / 100 * 100) / 100;
 
       if (existing?.outstandingPrincipal != null) {

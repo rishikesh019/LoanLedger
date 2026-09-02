@@ -209,6 +209,10 @@ export interface Payment {
      */
   outstandingPrincipal?: number | null;
   isPaid: boolean;
+  /** Whether this EMI was missed and capitalized into outstanding principal */
+  isMissed: boolean;
+  /** Full missed EMI added to principal (interest plus scheduled principal) */
+  capitalizedAmount: number;
   /** @nullable */
   paidDate?: string | null;
   /** @nullable */
@@ -226,12 +230,16 @@ export interface PaymentInput {
   /** Actual amount paid. If > monthly interest, surplus reduces principal. */
   amountPaid?: number;
   isPaid?: boolean;
+  /** Mark the month as missed; mutually exclusive with isPaid */
+  isMissed?: boolean;
   paidDate?: string;
   notes?: string;
 }
 
 export interface PaymentUpdate {
   isPaid?: boolean;
+  /** Mark the month as missed; mutually exclusive with isPaid */
+  isMissed?: boolean;
   paidDate?: string;
   notes?: string;
 }
@@ -345,6 +353,9 @@ export interface CollectionItem {
   /** @nullable */
   paymentId?: number | null;
   isPaid: boolean;
+  isMissed: boolean;
+  /** Full EMI added to principal when this month is marked missed */
+  capitalizedAmount: number;
   /** @nullable */
   amountPaid?: number | null;
 }

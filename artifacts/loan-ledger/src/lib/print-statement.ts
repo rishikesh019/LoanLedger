@@ -30,6 +30,7 @@ const SHARED_CSS = `
   .paid { color: #059669; font-weight: 600; }
   .pending { color: #94a3b8; }
   .overdue { color: #dc2626; font-weight: 600; }
+  .missed { color: #b91c1c; font-weight: 700; }
   .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
   @media print { body { padding: 20px; } }
 `;
@@ -48,22 +49,33 @@ function renderPaymentTable(payments: Payment[]): string {
       <th>Outstanding</th>
       <th>Interest Due</th>
       <th>Amount Paid</th>
-      <th>Principal ↓</th>
+      <th>Principal +/−</th>
       <th>Commission</th>
       <th>Status</th>
     </tr>
   </thead>
   <tbody>
     ${payments.map(p => {
-      const isOverdue = !p.isPaid && (p.year * 12 + (p.month - 1) < now.getFullYear() * 12 + now.getMonth());
+      const isOverdue = !p.isPaid && !p.isMissed && (p.year * 12 + (p.month - 1) < now.getFullYear() * 12 + now.getMonth());
+      const principalAdjustment = p.isMissed && p.capitalizedAmount > 0
+        ? "+" + fmt(p.capitalizedAmount)
+        : (p.principalReduction ?? 0) > 0
+          ? "−" + fmt(p.principalReduction!)
+          : "—";
+      const statusClass = p.isPaid ? "paid" : p.isMissed ? "missed" : isOverdue ? "overdue" : "pending";
+      const statusLabel = p.isPaid
+        ? "✓ Paid" + (p.paidDate ? " (" + p.paidDate + ")" : "")
+        : p.isMissed
+          ? "✕ Missed — added to principal"
+          : isOverdue ? "⚠ Overdue" : "Pending";
       return `<tr>
         <td>${MONTHS_FULL[p.month - 1]} ${p.year}</td>
         <td>${fmt(p.principalAmount)}</td>
         <td>${fmt(p.interestAmount)}</td>
         <td>${p.amountPaid != null ? fmt(p.amountPaid) : "—"}</td>
-        <td>${(p.principalReduction ?? 0) > 0 ? "−" + fmt(p.principalReduction!) : "—"}</td>
+        <td>${principalAdjustment}</td>
         <td>${fmt(p.commissionAmount)}</td>
-        <td class="${p.isPaid ? "paid" : isOverdue ? "overdue" : "pending"}">${p.isPaid ? "✓ Paid" + (p.paidDate ? " (" + p.paidDate + ")" : "") : isOverdue ? "⚠ Overdue" : "Pending"}</td>
+        <td class="${statusClass}">${statusLabel}</td>
       </tr>`;
     }).join("")}
   </tbody>

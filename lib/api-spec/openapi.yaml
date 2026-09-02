@@ -882,7 +882,7 @@ components:
     # ── Payment ────────────────────────────────────────────────────────────────
     Payment:
       type: object
-      required: [id, borrowerId, month, year, principalAmount, interestRate, baseInterestRate, commissionRate, interestAmount, baseInterestAmount, commissionAmount, principalReduction, isPaid, createdAt]
+      required: [id, borrowerId, month, year, principalAmount, interestRate, baseInterestRate, commissionRate, interestAmount, baseInterestAmount, commissionAmount, principalReduction, isPaid, isMissed, capitalizedAmount, createdAt]
       properties:
         id:
           type: integer
@@ -924,6 +924,13 @@ components:
           description: Remaining outstanding principal after this payment
         isPaid:
           type: boolean
+        isMissed:
+          type: boolean
+          description: Whether this EMI was missed and capitalized into outstanding principal
+        capitalizedAmount:
+          type: number
+          description: Full missed EMI added to principal (interest plus scheduled principal)
+          default: 0
         paidDate:
           type: ["string", "null"]
           format: date
@@ -948,6 +955,9 @@ components:
           description: Actual amount paid. If > monthly interest, surplus reduces principal.
         isPaid:
           type: boolean
+        isMissed:
+          type: boolean
+          description: Mark the month as missed; mutually exclusive with isPaid
         paidDate:
           type: string
           format: date
@@ -959,6 +969,9 @@ components:
       properties:
         isPaid:
           type: boolean
+        isMissed:
+          type: boolean
+          description: Mark the month as missed; mutually exclusive with isPaid
         paidDate:
           type: string
           format: date
@@ -1145,7 +1158,7 @@ components:
 
     CollectionItem:
       type: object
-      required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, interestRate, interestDue, overdueCount, hasPaymentRecord, isPaid]
+      required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, interestRate, interestDue, overdueCount, hasPaymentRecord, isPaid, isMissed, capitalizedAmount]
       properties:
         borrowerId:
           type: integer
@@ -1173,6 +1186,11 @@ components:
           type: ["integer", "null"]
         isPaid:
           type: boolean
+        isMissed:
+          type: boolean
+        capitalizedAmount:
+          type: number
+          description: Full EMI added to principal when this month is marked missed
         amountPaid:
           type: ["number", "null"]
 

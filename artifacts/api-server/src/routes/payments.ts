@@ -30,6 +30,7 @@ function coercePayment(p: typeof paymentsTable.$inferSelect) {
     amountPaid: p.amountPaid != null ? Number(p.amountPaid) : null,
     principalReduction: Number(p.principalReduction ?? 0),
     outstandingPrincipal: p.outstandingPrincipal != null ? Number(p.outstandingPrincipal) : null,
+    capitalizedAmount: Number(p.capitalizedAmount ?? 0),
   };
 }
 
@@ -63,6 +64,72 @@ async function getCurrentOutstanding(
   return originalPrincipal;
 }
 
+function getScheduledPrincipal(originalPrincipal: number, tenure: number | null): number {
+  if (!tenure || tenure <= 0) return 0;
+  return round2(originalPrincipal / tenure);
+}
+
+/**
+ * Rebuild every payment snapshot in chronological order.
+ * This is required when a past month changes between paid, missed, pending, or
+ * not recorded because that adjustment changes all later principal snapshots.
+ */
+async function rebuildPaymentLedger(borrowerId: number): Promise<void> {
+  const [borrower] = await db.select().from(borrowersTable).where(eq(borrowersTable.id, borrowerId));
+  if (!borrower) return;
+
+  const payments = await db.select().from(paymentsTable)
+    .where(eq(paymentsTable.borrowerId, borrowerId))
+    .orderBy(paymentsTable.year, paymentsTable.month);
+
+  const originalPrincipal = Number(borrower.principalAmount);
+  const scheduledPrincipal = getScheduledPrincipal(originalPrincipal, borrower.tenure);
+  let runningOutstanding = originalPrincipal;
+
+  await db.transaction(async (tx) => {
+    for (const payment of payments) {
+      const rate = Number(payment.interestRate);
+      const baseRate = Number(payment.baseInterestRate);
+      const commissionRate = Number(payment.commissionRate);
+      const fullInterest = round2((runningOutstanding * rate) / 100);
+      const fullBaseInterest = round2((runningOutstanding * baseRate) / 100);
+      const fullCommission = round2((runningOutstanding * commissionRate) / 100);
+      const amountPaid = payment.amountPaid != null ? Number(payment.amountPaid) : null;
+
+      let principalReduction = 0;
+      let capitalizedAmount = 0;
+      let outstandingAfter = runningOutstanding;
+
+      if (payment.isMissed) {
+        capitalizedAmount = round2(fullInterest + scheduledPrincipal);
+        outstandingAfter = round2(runningOutstanding + capitalizedAmount);
+      } else if (payment.isPaid && amountPaid != null && amountPaid > 0) {
+        if (amountPaid >= fullInterest) {
+          principalReduction = round2(amountPaid - fullInterest);
+          outstandingAfter = round2(Math.max(0, runningOutstanding - principalReduction));
+        }
+      }
+
+      await tx.update(paymentsTable)
+        .set({
+          principalAmount: String(runningOutstanding),
+          interestAmount: String(fullInterest),
+          baseInterestAmount: String(fullBaseInterest),
+          commissionAmount: String(fullCommission),
+          principalReduction: String(principalReduction),
+          capitalizedAmount: String(capitalizedAmount),
+          outstandingPrincipal: String(outstandingAfter),
+          isPaid: payment.isMissed ? false : payment.isPaid,
+          amountPaid: payment.isMissed ? null : payment.amountPaid,
+          paidDate: payment.isMissed ? null : payment.paidDate,
+        })
+        .where(eq(paymentsTable.id, payment.id));
+
+      runningOutstanding = outstandingAfter;
+    }
+  });
+}
+
 router.get("/borrowers/:borrowerId/payments", requireUser, async (req, res): Promise<void> => {
   const appUser = (req as any).appUser;
   const params = ListPaymentsParams.safeParse(req.params);
@@ -92,7 +159,11 @@ router.post("/borrowers/:borrowerId/payments", requireUser, async (req, res): Pr
   const parsed = CreatePaymentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const { month, year, isPaid = false, paidDate, notes } = parsed.data;
+  const { month, year, isPaid = false, isMissed = false, paidDate, notes } = parsed.data;
+  if (isPaid && isMissed) {
+    res.status(400).json({ error: "A payment cannot be both paid and missed" });
+    return;
+  }
   const amountPaid = (req.body.amountPaid != null && req.body.amountPaid !== "") ? Number(req.body.amountPaid) : null;
 
   const originalPrincipal = Number(borrower.principalAmount);
@@ -114,9 +185,13 @@ router.post("/borrowers/:borrowerId/payments", requireUser, async (req, res): Pr
   let actualInterestAmount = fullInterest;
   let actualBaseInterest = fullBaseInterest;
   let actualCommission = fullCommission;
-  let finalIsPaid = isPaid;
+  let finalIsPaid = isMissed ? false : isPaid;
+  let capitalizedAmount = 0;
 
-  if (amountPaid != null && amountPaid > 0) {
+  if (isMissed) {
+    capitalizedAmount = round2(fullInterest + getScheduledPrincipal(originalPrincipal, borrower.tenure));
+    outstandingAfter = round2(outstandingBefore + capitalizedAmount);
+  } else if (amountPaid != null && amountPaid > 0) {
     finalIsPaid = true; // Recording an actual amount implies payment was made
     if (amountPaid >= fullInterest) {
       // Full interest covered + possible principal reduction
@@ -151,17 +226,21 @@ router.post("/borrowers/:borrowerId/payments", requireUser, async (req, res): Pr
     interestAmount: String(actualInterestAmount),
     baseInterestAmount: String(actualBaseInterest),
     commissionAmount: String(actualCommission),
-    amountPaid: amountPaid != null ? String(amountPaid) : null,
+    amountPaid: !isMissed && amountPaid != null ? String(amountPaid) : null,
     principalReduction: String(principalReduction),
+    capitalizedAmount: String(capitalizedAmount),
     outstandingPrincipal: outstandingAfter != null ? String(outstandingAfter) : null,
     isPaid: finalIsPaid,
-    paidDate: paidDate
+    isMissed,
+    paidDate: !isMissed && paidDate
       ? (paidDate instanceof Date ? paidDate.toISOString().split("T")[0] : String(paidDate))
       : null,
     notes: notes || null,
   }).returning();
 
-  res.status(201).json(coercePayment(payment));
+  await rebuildPaymentLedger(pathParams.data.borrowerId);
+  const [rebuilt] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, payment.id));
+  res.status(201).json(coercePayment(rebuilt));
 });
 
 // Bulk payment generation — creates entries for a month range (interest-only, no principal reduction)
@@ -249,18 +328,36 @@ router.patch("/borrowers/:borrowerId/payments/:paymentId", requireUser, async (r
   const parsed = UpdatePaymentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const updateData = {
+  if (parsed.data.isPaid && parsed.data.isMissed) {
+    res.status(400).json({ error: "A payment cannot be both paid and missed" });
+    return;
+  }
+
+  const updateData: Record<string, unknown> = {
     ...parsed.data,
     paidDate: parsed.data.paidDate instanceof Date
       ? parsed.data.paidDate.toISOString().split("T")[0]
       : parsed.data.paidDate,
   };
+  if (parsed.data.isMissed === true) {
+    updateData.isPaid = false;
+    updateData.amountPaid = null;
+    updateData.paidDate = null;
+  } else if (parsed.data.isPaid === true) {
+    updateData.isMissed = false;
+  } else if (parsed.data.isPaid === false || parsed.data.isMissed === false) {
+    updateData.isPaid = false;
+    updateData.isMissed = false;
+    updateData.paidDate = null;
+  }
   const [updated] = await db.update(paymentsTable)
     .set(updateData)
     .where(and(eq(paymentsTable.id, params.data.paymentId), eq(paymentsTable.borrowerId, params.data.borrowerId)))
     .returning();
   if (!updated) { res.status(404).json({ error: "Payment not found" }); return; }
-  res.json(coercePayment(updated));
+  await rebuildPaymentLedger(params.data.borrowerId);
+  const [rebuilt] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, updated.id));
+  res.json(coercePayment(rebuilt));
 });
 
 router.delete("/borrowers/:borrowerId/payments/:paymentId", requireUser, async (req, res): Promise<void> => {
@@ -275,6 +372,7 @@ router.delete("/borrowers/:borrowerId/payments/:paymentId", requireUser, async (
   await db.delete(paymentsTable).where(
     and(eq(paymentsTable.id, params.data.paymentId), eq(paymentsTable.borrowerId, params.data.borrowerId))
   );
+  await rebuildPaymentLedger(params.data.borrowerId);
   res.sendStatus(204);
 });
 

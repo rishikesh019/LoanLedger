@@ -23,6 +23,9 @@ export interface CollectionItem {
   /** @nullable */
   paymentId?: number | null;
   isPaid: boolean;
+  isMissed: boolean;
+  /** Full EMI added to principal when this month is marked missed */
+  capitalizedAmount: number;
   /** @nullable */
   amountPaid?: number | null;
 }

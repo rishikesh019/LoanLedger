@@ -24,6 +24,9 @@ export const paymentsTable = pgTable("payments", {
   // Outstanding principal AFTER this payment
   outstandingPrincipal: numeric("outstanding_principal", { precision: 15, scale: 2 }),
   isPaid: boolean("is_paid").notNull().default(false),
+  // A missed EMI is capitalized into principal until the manager corrects its status.
+  isMissed: boolean("is_missed").notNull().default(false),
+  capitalizedAmount: numeric("capitalized_amount", { precision: 15, scale: 2 }).notNull().default("0"),
   paidDate: text("paid_date"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
