@@ -762,6 +762,7 @@ export const GetCurrentMonthCollectionsResponseItem = zod.object({
   "interestDue": zod.coerce.number().describe('Expected interest for current month based on outstanding principal'),
   "scheduledPrincipal": zod.coerce.number().describe('Monthly scheduled principal based on original principal divided by tenure'),
   "emiAmount": zod.coerce.number().describe('Full EMI that will be added to outstanding when capitalized'),
+  "isClosed": zod.boolean().describe('Whether the loan had closed by the end of the selected month'),
   "overdueCount": zod.coerce.number(),
   "hasPaymentRecord": zod.boolean(),
   "paymentId": zod.coerce.number().nullish(),

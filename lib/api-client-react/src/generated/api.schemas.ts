@@ -352,6 +352,8 @@ export interface CollectionItem {
   scheduledPrincipal: number;
   /** Full EMI that will be added to outstanding when capitalized */
   emiAmount: number;
+  /** Whether the loan had closed by the end of the selected month */
+  isClosed: boolean;
   overdueCount: number;
   hasPaymentRecord: boolean;
   /** @nullable */

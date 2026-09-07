@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, or, isNull, gte, lte, type SQL } from "drizzle-orm";
+import { eq, and, lte, type SQL } from "drizzle-orm";
 import { db, borrowersTable, paymentsTable } from "@workspace/db";
 import { requireUser } from "../middlewares/auth";
 
@@ -21,14 +21,13 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
     ? requestedMonth
     : now.getMonth() + 1;
 
-  const monthStart = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
   const lastDay = new Date(currentYear, currentMonth, 0).getDate();
   const monthEnd = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
-  // Include only loans that had started and were not yet closed during the selected month.
+  // Future loans stay hidden. Loans already closed by this month remain in the
+  // response only so the UI can report them separately from collectible capital.
   const conditions: SQL[] = [
     lte(borrowersTable.startDate, monthEnd),
-    or(isNull(borrowersTable.endDate), gte(borrowersTable.endDate, monthStart))!,
   ];
   if (appUser.role !== "admin") {
     conditions.push(eq(borrowersTable.userId, appUser.id));
@@ -64,6 +63,7 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
     const emiAmount = currentPayment?.isMissed && currentPayment.capitalizedAmount != null
       ? Number(currentPayment.capitalizedAmount)
       : round2(interestDue + scheduledPrincipal);
+    const isClosed = b.status === "closed" && (!b.endDate || b.endDate <= monthEnd);
 
     return {
       borrowerId: b.id,
@@ -76,6 +76,7 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
       interestDue,
       scheduledPrincipal,
       emiAmount,
+      isClosed,
       overdueCount,
       hasPaymentRecord: !!currentPayment,
       paymentId: currentPayment?.id ?? null,

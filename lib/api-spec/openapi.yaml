@@ -1158,7 +1158,7 @@ components:
 
     CollectionItem:
       type: object
-      required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, interestRate, interestDue, scheduledPrincipal, emiAmount, overdueCount, hasPaymentRecord, isPaid, isMissed, capitalizedAmount]
+      required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, interestRate, interestDue, scheduledPrincipal, emiAmount, isClosed, overdueCount, hasPaymentRecord, isPaid, isMissed, capitalizedAmount]
       properties:
         borrowerId:
           type: integer
@@ -1184,6 +1184,9 @@ components:
         emiAmount:
           type: number
           description: Full EMI that will be added to outstanding when capitalized
+        isClosed:
+          type: boolean
+          description: Whether the loan had closed by the end of the selected month
         overdueCount:
           type: integer
         hasPaymentRecord:

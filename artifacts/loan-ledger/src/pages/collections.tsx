@@ -41,13 +41,16 @@ export default function Collections() {
   });
   const updatePayment = useUpdatePayment();
 
-  const paid = (items ?? []).filter(i => i.isPaid);
-  const missed = (items ?? []).filter(i => i.isMissed);
-  const notRecorded = (items ?? []).filter(i => !i.hasPaymentRecord || (!i.isPaid && !i.isMissed));
+  const activeItems = (items ?? []).filter(i => !i.isClosed);
+  const closedItems = (items ?? []).filter(i => i.isClosed);
+  const paid = activeItems.filter(i => i.isPaid);
+  const missed = activeItems.filter(i => i.isMissed);
+  const notRecorded = activeItems.filter(i => !i.hasPaymentRecord || (!i.isPaid && !i.isMissed));
 
-  const totalDue = (items ?? []).reduce((s, i) => s + i.interestDue, 0);
+  const totalDue = activeItems.reduce((s, i) => s + i.interestDue, 0);
   const totalCollected = paid.reduce((s, i) => s + (i.amountPaid ?? i.interestDue), 0);
   const totalCapitalized = missed.reduce((s, i) => s + i.capitalizedAmount, 0);
+  const totalClosedAmount = closedItems.reduce((s, i) => s + i.outstandingPrincipal, 0);
 
   const refreshPaymentData = (borrowerId: number) => {
     queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(borrowerId) });
@@ -256,12 +259,12 @@ export default function Collections() {
               Current month
             </Button>
           )}
-          <span className="text-slate-500 text-sm">{items?.length ?? 0} active borrowers</span>
+          <span className="text-slate-500 text-sm">{activeItems.length} active borrowers</span>
         </div>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="border-emerald-200 bg-emerald-50">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-emerald-600 mb-1">Collected</p>
@@ -288,6 +291,13 @@ export default function Collections() {
             <p className="text-xs text-red-600 mb-1">Total Due</p>
             <p className="text-lg font-bold text-red-700">{formatCurrency(totalDue)}</p>
             <p className="text-xs text-red-400">selected month interest</p>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-300 bg-slate-100">
+          <CardContent className="p-3 md:p-4">
+            <p className="text-xs text-slate-600 mb-1">Closed Amount</p>
+            <p className="text-lg font-bold text-slate-800">{formatCurrency(totalClosedAmount)}</p>
+            <p className="text-xs text-slate-500">{closedItems.length} closed loan{closedItems.length !== 1 ? "s" : ""}</p>
           </CardContent>
         </Card>
       </div>
@@ -350,7 +360,7 @@ export default function Collections() {
         </Card>
       )}
 
-      {items?.length === 0 && (
+      {activeItems.length === 0 && (
         <Card className="border-slate-200">
           <CardContent className="py-16 text-center text-slate-400">
             <CalendarCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
