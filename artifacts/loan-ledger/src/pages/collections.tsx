@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, Circle, AlertTriangle, CalendarCheck, Phone, ExternalLink, Calendar, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
+import { CheckCircle, Circle, AlertTriangle, CalendarCheck, Phone, ExternalLink, Calendar, ChevronLeft, ChevronRight, XCircle, PlusCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -178,6 +178,29 @@ export default function Collections() {
           </Select>
         </td>
         <td className="px-4 md:px-6 py-3">
+          {item.isMissed ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 whitespace-nowrap">
+              <CheckCircle className="h-3.5 w-3.5" />
+              {formatCurrency(item.capitalizedAmount)} added
+            </span>
+          ) : !item.isPaid ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => handleStatusChange(item, "missed")}
+              disabled={isToggling}
+              className="h-8 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 whitespace-nowrap"
+              data-testid={`button-add-emi-outstanding-${item.borrowerId}`}
+            >
+              <PlusCircle className="h-3.5 w-3.5 mr-1.5" />
+              Add {formatCurrency(item.emiAmount)} EMI
+            </Button>
+          ) : (
+            <span className="text-xs text-slate-300">—</span>
+          )}
+        </td>
+        <td className="px-4 md:px-6 py-3">
           <Link href={`/borrowers/${item.borrowerId}`}>
             <button className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700">
               <ExternalLink className="h-3.5 w-3.5" />
@@ -277,7 +300,7 @@ export default function Collections() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[520px]">
+              <table className="w-full text-sm min-w-[760px]">
                 <thead>
                   <tr className="border-b border-amber-100 bg-amber-50">
                     <th className="text-left px-4 md:px-6 py-2.5 text-xs font-semibold text-amber-600 uppercase tracking-wide">Borrower</th>
@@ -285,6 +308,7 @@ export default function Collections() {
                     <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-amber-600 uppercase tracking-wide">Interest Due</th>
                     <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-amber-600 uppercase tracking-wide hidden sm:table-cell">Paid</th>
                     <th className="px-4 md:px-6 py-2.5 text-xs font-semibold text-amber-600 uppercase tracking-wide">Status</th>
+                    <th className="px-4 md:px-6 py-2.5 text-xs font-semibold text-amber-600 uppercase tracking-wide">Outstanding Action</th>
                     <th className="px-4 md:px-6 py-2.5"></th>
                   </tr>
                 </thead>
@@ -305,7 +329,7 @@ export default function Collections() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[520px]">
+              <table className="w-full text-sm min-w-[760px]">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
                     <th className="text-left px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Borrower</th>
@@ -313,6 +337,7 @@ export default function Collections() {
                     <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Interest Due</th>
                     <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Paid</th>
                     <th className="px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                    <th className="px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Outstanding Action</th>
                     <th className="px-4 md:px-6 py-2.5"></th>
                   </tr>
                 </thead>
@@ -329,7 +354,7 @@ export default function Collections() {
         <Card className="border-slate-200">
           <CardContent className="py-16 text-center text-slate-400">
             <CalendarCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p>No active borrowers yet.</p>
+            <p>No borrowers had an active loan during this month.</p>
             <Link href="/borrowers" className="text-emerald-600 text-sm mt-2 block hover:underline">Go add a borrower</Link>
           </CardContent>
         </Card>

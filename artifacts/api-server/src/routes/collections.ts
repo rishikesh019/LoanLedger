@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull, gte, lte, type SQL } from "drizzle-orm";
 import { db, borrowersTable, paymentsTable } from "@workspace/db";
 import { requireUser } from "../middlewares/auth";
 
@@ -21,8 +21,15 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
     ? requestedMonth
     : now.getMonth() + 1;
 
-  // Admin sees all active borrowers; regular users see only their own
-  const conditions: ReturnType<typeof eq>[] = [eq(borrowersTable.status, "active")];
+  const monthStart = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
+  const lastDay = new Date(currentYear, currentMonth, 0).getDate();
+  const monthEnd = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  // Include only loans that had started and were not yet closed during the selected month.
+  const conditions: SQL[] = [
+    lte(borrowersTable.startDate, monthEnd),
+    or(isNull(borrowersTable.endDate), gte(borrowersTable.endDate, monthStart))!,
+  ];
   if (appUser.role !== "admin") {
     conditions.push(eq(borrowersTable.userId, appUser.id));
   }
@@ -51,6 +58,12 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
         : Number(b.principalAmount);
 
     const interestDue = round2((outstandingPrincipal * Number(b.interestRate)) / 100);
+    const scheduledPrincipal = b.tenure && b.tenure > 0
+      ? round2(Number(b.principalAmount) / b.tenure)
+      : 0;
+    const emiAmount = currentPayment?.isMissed && currentPayment.capitalizedAmount != null
+      ? Number(currentPayment.capitalizedAmount)
+      : round2(interestDue + scheduledPrincipal);
 
     return {
       borrowerId: b.id,
@@ -61,6 +74,8 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
       outstandingPrincipal,
       interestRate: Number(b.interestRate),
       interestDue,
+      scheduledPrincipal,
+      emiAmount,
       overdueCount,
       hasPaymentRecord: !!currentPayment,
       paymentId: currentPayment?.id ?? null,
