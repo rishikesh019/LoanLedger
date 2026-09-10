@@ -48,7 +48,7 @@ export default function Collections() {
   const notRecorded = activeItems.filter(i => !i.hasPaymentRecord || (!i.isPaid && !i.isMissed));
 
   const totalDue = notRecorded.reduce((s, i) => s + i.interestDue, 0);
-  const totalCollected = paid.reduce((s, i) => s + (i.amountPaid ?? i.interestDue), 0);
+  const totalCollected = (items ?? []).reduce((s, i) => s + i.interestCollected, 0);
   const totalCapitalized = missed.reduce((s, i) => s + i.capitalizedAmount, 0);
   const totalClosedAmount = closedItems.reduce((s, i) => s + i.periodEndOutstandingPrincipal, 0);
 
@@ -269,7 +269,7 @@ export default function Collections() {
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-emerald-600 mb-1">Collected</p>
             <p className="text-lg font-bold text-emerald-700">{formatCurrency(totalCollected)}</p>
-            <p className="text-xs text-emerald-500">{paid.length} paid active loan{paid.length !== 1 ? "s" : ""}; closed excluded</p>
+            <p className="text-xs text-emerald-500">interest received only; principal and closure payments excluded</p>
           </CardContent>
         </Card>
         <Card className="border-red-200 bg-red-50">

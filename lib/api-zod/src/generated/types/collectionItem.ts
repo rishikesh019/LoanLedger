@@ -21,6 +21,8 @@ export interface CollectionItem {
   interestRate: number;
   /** Expected interest for current month based on outstanding principal */
   interestDue: number;
+  /** Interest actually collected in the selected month, excluding principal and closure payments */
+  interestCollected: number;
   /** Monthly scheduled principal based on original principal divided by tenure */
   scheduledPrincipal: number;
   /** Full EMI that will be added to outstanding when capitalized */

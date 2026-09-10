@@ -1158,7 +1158,7 @@ components:
 
     CollectionItem:
       type: object
-      required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, periodEndOutstandingPrincipal, interestRate, interestDue, scheduledPrincipal, emiAmount, isClosed, overdueCount, hasPaymentRecord, isPaid, isMissed, capitalizedAmount]
+      required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, periodEndOutstandingPrincipal, interestRate, interestDue, interestCollected, scheduledPrincipal, emiAmount, isClosed, overdueCount, hasPaymentRecord, isPaid, isMissed, capitalizedAmount]
       properties:
         borrowerId:
           type: integer
@@ -1182,6 +1182,9 @@ components:
         interestDue:
           type: number
           description: Expected interest for current month based on outstanding principal
+        interestCollected:
+          type: number
+          description: Interest actually collected in the selected month, excluding principal and closure payments
         scheduledPrincipal:
           type: number
           description: Monthly scheduled principal based on original principal divided by tenure

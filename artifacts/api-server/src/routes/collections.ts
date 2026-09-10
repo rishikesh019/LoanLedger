@@ -22,6 +22,7 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
     : now.getMonth() + 1;
 
   const lastDay = new Date(currentYear, currentMonth, 0).getDate();
+  const monthStart = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
   const monthEnd = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
   // Future loans stay hidden. Loans already closed by this month remain in the
@@ -38,7 +39,14 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
   const items = await Promise.all(borrowers.map(async (b) => {
     const payments = await db.select().from(paymentsTable).where(eq(paymentsTable.borrowerId, b.id));
     const selectedCursor = currentYear * 12 + (currentMonth - 1);
-    const currentPayment = payments.find(p => p.year === currentYear && p.month === currentMonth);
+    const currentPayments = payments
+      .filter(p => p.year === currentYear && p.month === currentMonth)
+      .sort((a, b) => a.id - b.id);
+    const currentPayment = currentPayments.at(-1);
+    const normalizedEndDate = b.endDate?.slice(0, 10) ?? null;
+    const closedBeforeSelectedMonth = b.status === "closed"
+      && normalizedEndDate != null
+      && normalizedEndDate < monthStart;
 
     // Overdue = unpaid payments in past months
     const overdueCount = payments.filter(p =>
@@ -70,7 +78,23 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
     const emiAmount = currentPayment?.isMissed && currentPayment.capitalizedAmount != null
       ? Number(currentPayment.capitalizedAmount)
       : round2(interestDue + scheduledPrincipal);
-    const isClosed = b.status === "closed" && (!b.endDate || b.endDate <= monthEnd);
+    const isClosed = b.status === "closed" && (!normalizedEndDate || normalizedEndDate <= monthEnd);
+    const interestCollected = closedBeforeSelectedMonth
+      ? 0
+      : round2(currentPayments.reduce((total, payment) => {
+          if (!payment.isPaid) return total;
+
+          const recordedInterest = Number(payment.interestAmount);
+          const amountPaid = payment.amountPaid != null ? Number(payment.amountPaid) : recordedInterest;
+          const principalReduction = payment.principalReduction != null
+            ? Number(payment.principalReduction)
+            : Math.max(0, amountPaid - recordedInterest);
+          const isClosurePayment = isClosed && principalReduction > 0;
+
+          return isClosurePayment
+            ? total
+            : total + Math.min(amountPaid, recordedInterest);
+        }, 0));
 
     return {
       borrowerId: b.id,
@@ -82,6 +106,7 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
       periodEndOutstandingPrincipal,
       interestRate: Number(b.interestRate),
       interestDue,
+      interestCollected,
       scheduledPrincipal,
       emiAmount,
       isClosed,
