@@ -50,11 +50,18 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
       .filter(p => p.year * 12 + (p.month - 1) < selectedCursor)
       .sort((a, b) => b.year * 12 + b.month - (a.year * 12 + a.month))
       .find(p => p.outstandingPrincipal != null);
+    const latestThroughSelected = [...payments]
+      .filter(p => p.year * 12 + (p.month - 1) <= selectedCursor)
+      .sort((a, b) => b.year * 12 + b.month - (a.year * 12 + a.month))
+      .find(p => p.outstandingPrincipal != null);
     const outstandingPrincipal = currentPayment
       ? Number(currentPayment.principalAmount)
       : latestPrevious?.outstandingPrincipal != null
         ? Number(latestPrevious.outstandingPrincipal)
         : Number(b.principalAmount);
+    const periodEndOutstandingPrincipal = latestThroughSelected?.outstandingPrincipal != null
+      ? Number(latestThroughSelected.outstandingPrincipal)
+      : outstandingPrincipal;
 
     const interestDue = round2((outstandingPrincipal * Number(b.interestRate)) / 100);
     const scheduledPrincipal = b.tenure && b.tenure > 0
@@ -72,6 +79,7 @@ router.get("/collections/current-month", requireUser, async (req, res): Promise<
       startDate: b.startDate ?? "",
       principalAmount: Number(b.principalAmount),
       outstandingPrincipal,
+      periodEndOutstandingPrincipal,
       interestRate: Number(b.interestRate),
       interestDue,
       scheduledPrincipal,

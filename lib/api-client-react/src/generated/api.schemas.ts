@@ -344,7 +344,10 @@ export interface CollectionItem {
   /** Date the loan was issued (YYYY-MM-DD) */
   startDate?: string;
   principalAmount: number;
+  /** Principal at the start of the selected month */
   outstandingPrincipal: number;
+  /** Principal after all records through the selected month */
+  periodEndOutstandingPrincipal: number;
   interestRate: number;
   /** Expected interest for current month based on outstanding principal */
   interestDue: number;

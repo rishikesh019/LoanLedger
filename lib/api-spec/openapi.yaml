@@ -1158,7 +1158,7 @@ components:
 
     CollectionItem:
       type: object
-      required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, interestRate, interestDue, scheduledPrincipal, emiAmount, isClosed, overdueCount, hasPaymentRecord, isPaid, isMissed, capitalizedAmount]
+      required: [borrowerId, borrowerName, principalAmount, outstandingPrincipal, periodEndOutstandingPrincipal, interestRate, interestDue, scheduledPrincipal, emiAmount, isClosed, overdueCount, hasPaymentRecord, isPaid, isMissed, capitalizedAmount]
       properties:
         borrowerId:
           type: integer
@@ -1173,6 +1173,10 @@ components:
           type: number
         outstandingPrincipal:
           type: number
+          description: Principal at the start of the selected month
+        periodEndOutstandingPrincipal:
+          type: number
+          description: Principal after all records through the selected month
         interestRate:
           type: number
         interestDue:

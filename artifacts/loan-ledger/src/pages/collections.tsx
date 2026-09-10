@@ -47,10 +47,10 @@ export default function Collections() {
   const missed = activeItems.filter(i => i.isMissed);
   const notRecorded = activeItems.filter(i => !i.hasPaymentRecord || (!i.isPaid && !i.isMissed));
 
-  const totalDue = activeItems.reduce((s, i) => s + i.interestDue, 0);
+  const totalDue = notRecorded.reduce((s, i) => s + i.interestDue, 0);
   const totalCollected = paid.reduce((s, i) => s + (i.amountPaid ?? i.interestDue), 0);
   const totalCapitalized = missed.reduce((s, i) => s + i.capitalizedAmount, 0);
-  const totalClosedAmount = closedItems.reduce((s, i) => s + i.outstandingPrincipal, 0);
+  const totalClosedAmount = closedItems.reduce((s, i) => s + i.periodEndOutstandingPrincipal, 0);
 
   const refreshPaymentData = (borrowerId: number) => {
     queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(borrowerId) });
@@ -269,35 +269,35 @@ export default function Collections() {
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-emerald-600 mb-1">Collected</p>
             <p className="text-lg font-bold text-emerald-700">{formatCurrency(totalCollected)}</p>
-            <p className="text-xs text-emerald-500">{paid.length} borrower{paid.length !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-emerald-500">{paid.length} paid active loan{paid.length !== 1 ? "s" : ""}; closed excluded</p>
           </CardContent>
         </Card>
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-red-600 mb-1">Missed EMI</p>
             <p className="text-lg font-bold text-red-700">{formatCurrency(totalCapitalized)}</p>
-            <p className="text-xs text-red-500">{missed.length} added to principal</p>
+            <p className="text-xs text-red-500">{missed.length} active EMI{missed.length !== 1 ? "s" : ""} added to principal</p>
           </CardContent>
         </Card>
         <Card className="border-slate-200">
           <CardContent className="p-3 md:p-4">
             <p className="text-xs text-slate-500 mb-1">Not Recorded</p>
             <p className="text-lg font-bold text-slate-900">{notRecorded.length}</p>
-            <p className="text-xs text-slate-400">needs manager review</p>
+            <p className="text-xs text-slate-400">active loans without Paid or Missed status</p>
           </CardContent>
         </Card>
         <Card className="border-red-100 bg-red-50">
           <CardContent className="p-3 md:p-4">
-            <p className="text-xs text-red-600 mb-1">Total Due</p>
+            <p className="text-xs text-red-600 mb-1">Pending Interest</p>
             <p className="text-lg font-bold text-red-700">{formatCurrency(totalDue)}</p>
-            <p className="text-xs text-red-400">selected month interest</p>
+            <p className="text-xs text-red-400">not-recorded active loans only</p>
           </CardContent>
         </Card>
         <Card className="border-slate-300 bg-slate-100">
           <CardContent className="p-3 md:p-4">
-            <p className="text-xs text-slate-600 mb-1">Closed Amount</p>
+            <p className="text-xs text-slate-600 mb-1">Closed Outstanding</p>
             <p className="text-lg font-bold text-slate-800">{formatCurrency(totalClosedAmount)}</p>
-            <p className="text-xs text-slate-500">{closedItems.length} closed loan{closedItems.length !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-slate-500">{closedItems.length} closed loan{closedItems.length !== 1 ? "s" : ""}; excluded from collections</p>
           </CardContent>
         </Card>
       </div>
