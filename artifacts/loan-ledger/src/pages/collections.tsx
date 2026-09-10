@@ -43,12 +43,12 @@ export default function Collections() {
 
   const activeItems = (items ?? []).filter(i => !i.isClosed);
   const closedItems = (items ?? []).filter(i => i.isClosed);
-  const paid = activeItems.filter(i => i.isPaid);
+  const paid = (items ?? []).filter(i => i.interestCollected > 0);
   const missed = activeItems.filter(i => i.isMissed);
   const notRecorded = activeItems.filter(i => !i.hasPaymentRecord || (!i.isPaid && !i.isMissed));
 
   const totalDue = notRecorded.reduce((s, i) => s + i.interestDue, 0);
-  const totalCollected = (items ?? []).reduce((s, i) => s + i.interestCollected, 0);
+  const totalCollected = paid.reduce((s, i) => s + i.interestCollected, 0);
   const totalCapitalized = missed.reduce((s, i) => s + i.capitalizedAmount, 0);
   const totalClosedAmount = closedItems.reduce((s, i) => s + i.periodEndOutstandingPrincipal, 0);
 
@@ -134,7 +134,13 @@ export default function Collections() {
     );
   }
 
-  const BorrowerRow = ({ item }: { item: NonNullable<typeof items>[number] }) => {
+  const BorrowerRow = ({
+    item,
+    showCollectedInterest = false,
+  }: {
+    item: NonNullable<typeof items>[number];
+    showCollectedInterest?: boolean;
+  }) => {
     const isToggling = togglingId === item.borrowerId;
     return (
       <tr className="hover:bg-slate-50 transition-colors" key={item.borrowerId}>
@@ -142,6 +148,11 @@ export default function Collections() {
           <div className="flex items-center gap-2">
             <div>
               <p className="font-medium text-slate-900">{item.borrowerName}</p>
+              {item.isClosed && (
+                <span className="mt-0.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  Closed after this collection
+                </span>
+              )}
               {item.phone && <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3" />{item.phone}</p>}
               {item.startDate && <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><Calendar className="h-3 w-3" />Loan from {formatDate(item.startDate)}</p>}
             </div>
@@ -155,30 +166,40 @@ export default function Collections() {
         <td className="px-4 md:px-6 py-3 text-right text-slate-700 whitespace-nowrap hidden md:table-cell">{formatCurrency(item.outstandingPrincipal)}</td>
         <td className="px-4 md:px-6 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{formatCurrency(item.interestDue)}</td>
         <td className="px-4 md:px-6 py-3 text-right text-slate-600 whitespace-nowrap hidden sm:table-cell">
-          {item.amountPaid != null ? formatCurrency(item.amountPaid) : <span className="text-slate-300">—</span>}
+          {showCollectedInterest
+            ? formatCurrency(item.interestCollected)
+            : item.amountPaid != null
+              ? formatCurrency(item.amountPaid)
+              : <span className="text-slate-300">—</span>}
         </td>
         <td className="px-4 md:px-6 py-3">
-          <Select
-            value={item.isPaid ? "paid" : item.isMissed ? "missed" : "not_recorded"}
-            onValueChange={(value) => handleStatusChange(item, value as "paid" | "missed" | "not_recorded")}
-            disabled={isToggling}
-          >
-            <SelectTrigger
-              className={`h-8 w-[132px] text-xs font-medium ${
-                item.isPaid ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : item.isMissed ? "border-red-200 bg-red-50 text-red-700"
-                : "border-amber-200 bg-amber-50 text-amber-700"
-              }`}
-              data-testid={`select-collection-status-${item.borrowerId}`}
+          {item.isClosed ? (
+            <span className="inline-flex h-8 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-600">
+              Closed
+            </span>
+          ) : (
+            <Select
+              value={item.isPaid ? "paid" : item.isMissed ? "missed" : "not_recorded"}
+              onValueChange={(value) => handleStatusChange(item, value as "paid" | "missed" | "not_recorded")}
+              disabled={isToggling}
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="paid"><span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-600" />Paid</span></SelectItem>
-              <SelectItem value="missed"><span className="flex items-center gap-1.5"><XCircle className="h-3.5 w-3.5 text-red-600" />Missed</span></SelectItem>
-              <SelectItem value="not_recorded"><span className="flex items-center gap-1.5"><Circle className="h-3.5 w-3.5 text-amber-600" />Not recorded</span></SelectItem>
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                className={`h-8 w-[132px] text-xs font-medium ${
+                  item.isPaid ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : item.isMissed ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-amber-200 bg-amber-50 text-amber-700"
+                }`}
+                data-testid={`select-collection-status-${item.borrowerId}`}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="paid"><span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-600" />Paid</span></SelectItem>
+                <SelectItem value="missed"><span className="flex items-center gap-1.5"><XCircle className="h-3.5 w-3.5 text-red-600" />Missed</span></SelectItem>
+                <SelectItem value="not_recorded"><span className="flex items-center gap-1.5"><Circle className="h-3.5 w-3.5 text-amber-600" />Not recorded</span></SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </td>
         <td className="px-4 md:px-6 py-3">
           {item.isMissed ? (
@@ -345,14 +366,14 @@ export default function Collections() {
                     <th className="text-left px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Borrower</th>
                     <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Outstanding</th>
                     <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Interest Due</th>
-                    <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Paid</th>
+                    <th className="text-right px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Interest Collected</th>
                     <th className="px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
                     <th className="px-4 md:px-6 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Outstanding Action</th>
                     <th className="px-4 md:px-6 py-2.5"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {paid.map(item => <BorrowerRow key={item.borrowerId} item={item} />)}
+                  {paid.map(item => <BorrowerRow key={item.borrowerId} item={item} showCollectedInterest />)}
                 </tbody>
               </table>
             </div>
