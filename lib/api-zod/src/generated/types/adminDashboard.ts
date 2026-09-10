@@ -13,6 +13,7 @@ export interface AdminDashboard {
   activeUsers: number;
   totalBorrowers: number;
   activeBorrowers: number;
+  /** Sum of principal for active borrowers only; closed loans are excluded */
   totalPrincipalDeployed: number;
   totalInterestEarned: number;
   totalBaseInterestEarned: number;

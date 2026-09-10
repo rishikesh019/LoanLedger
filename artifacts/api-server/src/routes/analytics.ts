@@ -208,6 +208,7 @@ router.get("/analytics/admin-dashboard", requireAdmin, async (req, res): Promise
   const activeUsers = users.filter(u => u.isActive);
   const topPerformers = await Promise.all(activeUsers.map(async (user) => {
     const userBorrowers = await db.select().from(borrowersTable).where(eq(borrowersTable.userId, user.id));
+    const activeUserBorrowers = userBorrowers.filter(b => b.status === "active");
     const userPayments = await db.select().from(paymentsTable)
       .leftJoin(borrowersTable, eq(paymentsTable.borrowerId, borrowersTable.id))
       .where(eq(borrowersTable.userId, user.id));
@@ -217,21 +218,22 @@ router.get("/analytics/admin-dashboard", requireAdmin, async (req, res): Promise
       userName: user.name,
       userEmail: user.email,
       totalBorrowers: userBorrowers.length,
-      activeBorrowers: userBorrowers.filter(b => b.status === "active").length,
-      totalPrincipal: round2(userBorrowers.reduce((sum, b) => sum + Number(b.principalAmount), 0)),
+      activeBorrowers: activeUserBorrowers.length,
+      totalPrincipal: round2(activeUserBorrowers.reduce((sum, b) => sum + Number(b.principalAmount), 0)),
       totalInterest: round2(paid.reduce((sum, p) => sum + Number(p.payments.interestAmount), 0)),
       totalBaseInterest: round2(paid.reduce((sum, p) => sum + Number(p.payments.baseInterestAmount), 0)),
       totalCommission: round2(paid.reduce((sum, p) => sum + Number(p.payments.commissionAmount), 0)),
     };
   }));
   topPerformers.sort((a, b) => b.totalInterest - a.totalInterest);
+  const activeBorrowers = borrowers.filter(b => b.status === "active");
 
   res.json({
     totalUsers: users.length,
     activeUsers: users.filter(u => u.isActive).length,
     totalBorrowers: borrowers.length,
-    activeBorrowers: borrowers.filter(b => b.status === "active").length,
-    totalPrincipalDeployed: round2(borrowers.reduce((sum, b) => sum + Number(b.principalAmount), 0)),
+    activeBorrowers: activeBorrowers.length,
+    totalPrincipalDeployed: round2(activeBorrowers.reduce((sum, b) => sum + Number(b.principalAmount), 0)),
     totalInterestEarned,
     totalBaseInterestEarned,
     totalCommissionEarned,

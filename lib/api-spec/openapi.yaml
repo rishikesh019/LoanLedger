@@ -1083,6 +1083,7 @@ components:
           type: integer
         totalPrincipalDeployed:
           type: number
+          description: Sum of principal for active borrowers only; closed loans are excluded
         totalInterestEarned:
           type: number
         totalBaseInterestEarned:

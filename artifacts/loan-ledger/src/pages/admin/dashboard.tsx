@@ -66,7 +66,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard title="Total Users" value={data?.totalUsers ?? 0} sub={`${data?.activeUsers ?? 0} active`} icon={Users} />
             <StatCard title="Total Borrowers" value={data?.totalBorrowers ?? 0} sub={`${data?.activeBorrowers ?? 0} active`} icon={Users} />
-            <StatCard title="Principal Deployed" value={formatCurrency(data?.totalPrincipalDeployed ?? 0)} icon={IndianRupee} />
+            <StatCard title="Active Principal" value={formatCurrency(data?.totalPrincipalDeployed ?? 0)} sub="Closed loans excluded" icon={IndianRupee} />
             <StatCard title="Total Interest" value={formatCurrency(data?.totalInterestEarned ?? 0)} sub="All time" icon={TrendingUp} accent />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -167,7 +167,7 @@ export default function AdminDashboard() {
                       <tr className="border-b border-slate-100 bg-slate-50">
                         <th className="text-left px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
                         <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Borrowers</th>
-                        <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Principal</th>
+                        <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Active Principal</th>
                         <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Interest</th>
                         <th className="text-right px-4 md:px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Commission</th>
                       </tr>

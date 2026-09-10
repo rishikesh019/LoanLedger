@@ -578,7 +578,7 @@ export const GetAdminDashboardResponse = zod.object({
   "activeUsers": zod.coerce.number(),
   "totalBorrowers": zod.coerce.number(),
   "activeBorrowers": zod.coerce.number(),
-  "totalPrincipalDeployed": zod.coerce.number(),
+  "totalPrincipalDeployed": zod.coerce.number().describe('Sum of principal for active borrowers only; closed loans are excluded'),
   "totalInterestEarned": zod.coerce.number(),
   "totalBaseInterestEarned": zod.coerce.number(),
   "totalCommissionEarned": zod.coerce.number(),
